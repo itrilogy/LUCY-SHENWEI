@@ -1,0 +1,178 @@
+{
+  "folder": "case-bank-generated",
+  "createdAt": "2026-07-16",
+  "styleNote": "写实巡检纪录片风格，16:9 宽幅，无答案文字叠加（便于找茬标注）。00 为原系统参考图。",
+  "sourceKnowledgeScenes": [
+    "建设施工现场",
+    "化工生产车间",
+    "仓储与物流区域",
+    "办公室及公共楼宇",
+    "实验室研发中心"
+  ],
+  "cases": [
+    {
+      "file": "00_参考风格_原案例图_建设施工.png",
+      "type": "style_reference",
+      "scene": "建设施工现场",
+      "clauseIds": ["JB-01", "JB-03", "JB-09"],
+      "notes": "系统原有案例图，含教学文字叠加，仅作风格参考"
+    },
+    {
+      "file": "01_建设施工_高处坠落与物料_JB-01-03-09.jpg",
+      "type": "case_photo",
+      "scene": "建设施工现场",
+      "category": "高处坠落隐患 / 物体打击隐患",
+      "clauseIds": ["JB-01", "JB-03", "JB-09"],
+      "suggestedHazards": [
+        "高空作业未正确佩戴安全帽/安全带",
+        "脚手架踏板破损缺失或未满铺",
+        "建筑材料无序堆放存在倾覆风险"
+      ]
+    },
+    {
+      "file": "02_建设施工_临时用电_JB-05-06-07.jpg",
+      "type": "case_photo",
+      "scene": "建设施工现场",
+      "category": "触电灾害隐患",
+      "clauseIds": ["JB-05", "JB-06", "JB-07"],
+      "suggestedHazards": [
+        "配电箱未上锁或无防雨防砸措施",
+        "一闸多机/多设备共插座",
+        "电缆拖地或浸泡积水未架空"
+      ]
+    },
+    {
+      "file": "03_建设施工_基坑临边与交叉作业_JB-04-08.jpg",
+      "type": "case_photo",
+      "scene": "建设施工现场",
+      "category": "高处坠落隐患 / 物体打击隐患",
+      "clauseIds": ["JB-02", "JB-04", "JB-08"],
+      "suggestedHazards": [
+        "临边洞口无防护",
+        "深基坑周边无防护栏杆",
+        "交叉作业区域无安全防护棚"
+      ]
+    },
+    {
+      "file": "04_化工车间_火灾爆炸_HG-01-02-03.jpg",
+      "type": "case_photo",
+      "scene": "化工生产车间",
+      "category": "火灾爆炸隐患",
+      "clauseIds": ["HG-01", "HG-02", "HG-03"],
+      "suggestedHazards": [
+        "易燃易爆区域违章动火或吸烟",
+        "防爆区使用非防爆电器",
+        "静电接地线脱落或未规范连接"
+      ]
+    },
+    {
+      "file": "05_化工车间_中毒窒息有限空间_HG-04-05.jpg",
+      "type": "case_photo",
+      "scene": "化工生产车间",
+      "category": "中毒窒息隐患",
+      "clauseIds": ["HG-04", "HG-05"],
+      "suggestedHazards": [
+        "有限空间未通风/未气体检测",
+        "有毒物环境未佩戴合格防毒面具"
+      ]
+    },
+    {
+      "file": "06_化工车间_特种设备管道_HG-06-07.jpg",
+      "type": "case_photo",
+      "scene": "化工生产车间",
+      "category": "特种设备隐患",
+      "clauseIds": ["HG-06", "HG-07"],
+      "suggestedHazards": [
+        "压力容器安全阀/压力表逾期未校验",
+        "管道无流向与介质标识"
+      ]
+    },
+    {
+      "file": "07_仓储物流_消防通道设施_CC-01-02-03.jpg",
+      "type": "case_photo",
+      "scene": "仓储与物流区域",
+      "category": "消防安全隐患",
+      "clauseIds": ["CC-01", "CC-02", "CC-03"],
+      "suggestedHazards": [
+        "堆垛堵塞消防通道或安全出口",
+        "消防设施被遮挡或失效",
+        "库区违规充电"
+      ]
+    },
+    {
+      "file": "08_仓储物流_叉车吊装货架_CC-04-05-06.jpg",
+      "type": "case_photo",
+      "scene": "仓储与物流区域",
+      "category": "机械伤害与装卸隐患",
+      "clauseIds": ["CC-04", "CC-05", "CC-06"],
+      "suggestedHazards": [
+        "叉车超速或未鸣笛",
+        "货架超高堆叠无防倾倒",
+        "人员在吊装物下停留穿越"
+      ]
+    },
+    {
+      "file": "09_办公楼宇_防火门应急照明电器_BG-01-02-03.jpg",
+      "type": "case_photo",
+      "scene": "办公室及公共楼宇",
+      "category": "日常消防隐患",
+      "clauseIds": ["BG-01", "BG-02", "BG-03"],
+      "suggestedHazards": [
+        "常闭防火门常开或锁死",
+        "应急照明/疏散指示损坏",
+        "违规大功率电器"
+      ]
+    },
+    {
+      "file": "10_办公楼宇_用电拖线板破损_BG-04-05.jpg",
+      "type": "case_photo",
+      "scene": "办公室及公共楼宇",
+      "category": "日常用电隐患",
+      "clauseIds": ["BG-04", "BG-05"],
+      "suggestedHazards": [
+        "拖线板私拉乱接串联超载",
+        "电器外壳破损线芯外露"
+      ]
+    },
+    {
+      "file": "11_实验室_危化品双锁废液酸碱_SY-01-02-03.jpg",
+      "type": "case_photo",
+      "scene": "实验室研发中心",
+      "category": "危险化学品隐患",
+      "clauseIds": ["SY-01", "SY-02", "SY-03"],
+      "suggestedHazards": [
+        "危化品未双人双锁",
+        "废液未分类贴标",
+        "酸碱试剂混放未隔离"
+      ]
+    },
+    {
+      "file": "12_实验室_PPE与洗眼器_SY-04-05.jpg",
+      "type": "case_photo",
+      "scene": "实验室研发中心",
+      "category": "特种防护隐患",
+      "clauseIds": ["SY-04", "SY-05"],
+      "suggestedHazards": [
+        "实验人员未戴护目镜/白大褂",
+        "洗眼器喷淋被遮挡或无效"
+      ]
+    }
+  ],
+  "coverage": {
+    "totalKnowledgeItems": 32,
+    "mappedClauseIds": [
+      "JB-01", "JB-02", "JB-03", "JB-04", "JB-05", "JB-06", "JB-07", "JB-08", "JB-09",
+      "HG-01", "HG-02", "HG-03", "HG-04", "HG-05", "HG-06", "HG-07",
+      "CC-01", "CC-02", "CC-03", "CC-04", "CC-05", "CC-06",
+      "BG-01", "BG-02", "BG-03", "BG-04", "BG-05",
+      "SY-01", "SY-02", "SY-03", "SY-04", "SY-05"
+    ],
+    "note": "32 条知识均已映射到至少一张案例图（多隐患合成）。导入后请在图库标注中按真实像素位置框选并绑定 clauseId。"
+  },
+  "importHints": [
+    "将 jpg 上传至图库标注（可多选上传）",
+    "按 suggestedHazards 在图上框选热区",
+    "绑定对应 clauseIds 后保存",
+    "再到组卷中心勾选成卷"
+  ]
+}

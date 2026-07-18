@@ -2,33 +2,143 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs/promises');
+const fsSync = require('fs');
 const multer = require('multer');
 const { initDB, getDB } = require('./db');
+const { hashPassword, verifyPassword, newId } = require('./auth');
+const analytics = require('./analytics');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 诊断路由：确保后端逻辑已加载
-app.get('/api/ping', (req, res) => res.send('pong'));
-
-// 路径宏定义
+// 路径宏定义（health 等路由需尽早可用）
 const DIR_RAW = path.join(__dirname, '../data/assets/raw');
 const DIR_META = path.join(__dirname, '../data/assets/meta');
 const DIR_RECORDS = path.join(__dirname, '../data/sessions/records');
 const DIR_EXAMS = path.join(__dirname, '../data/exams');
 
+// 诊断路由：确保后端逻辑已加载
+app.get('/api/ping', (req, res) => res.send('pong'));
+
+// Phase 1: 健康检查 + 管理端简易鉴权
+const ADMIN_PIN = process.env.ADMIN_PIN || 'safeeye';
+const APP_VERSION = '1.3.0-analytics';
+
+app.get('/api/health', (req, res) => {
+    try {
+        let dbOk = false;
+        try {
+            const db = getDB();
+            dbOk = !!db.prepare('SELECT 1 as ok').get()?.ok;
+        } catch (_) {
+            dbOk = false;
+        }
+        const rawExists = fsSync.existsSync(DIR_RAW);
+        res.json({
+            status: dbOk && rawExists ? 'ok' : 'degraded',
+            version: APP_VERSION,
+            db: dbOk,
+            assetsDir: rawExists,
+            adminPinRequired: true,
+            timestamp: Date.now()
+        });
+    } catch (e) {
+        res.status(503).json({ status: 'error', error: e.message, version: APP_VERSION });
+    }
+});
+
+app.post('/api/admin/login', (req, res) => {
+    const pin = String(req.body?.pin ?? '');
+    if (pin === ADMIN_PIN) {
+        return res.json({ status: 'success', token: 'local-admin', message: '管理端已解锁' });
+    }
+    return res.status(401).json({ error: '管理口令错误' });
+});
+
+/**
+ * 修复 multer/busboy 对中文文件名的乱码：
+ * 浏览器以 UTF-8 发送文件名，busboy 常按 latin1 读成“æ…/å…”等 mojibake。
+ */
+function decodeUploadFilename(originalName) {
+    if (!originalName || typeof originalName !== 'string') return 'image';
+    let name = originalName;
+    try {
+        // RFC5987 / 部分客户端
+        if (/%[0-9A-Fa-f]{2}/.test(name)) {
+            try { name = decodeURIComponent(name); } catch (_) { /* keep */ }
+        }
+        const hasCjk = (s) => /[\u4e00-\u9fff\u3400-\u4dbf]/.test(s);
+        const hasMojibake = (s) => /[ÃÂÅÆØÐÑåæø]/.test(s) || /Ã./.test(s);
+        // 典型乱码：latin1 误读 UTF-8 → 转回
+        if (!hasCjk(name) || hasMojibake(name)) {
+            const repaired = Buffer.from(originalName, 'latin1').toString('utf8');
+            if (hasCjk(repaired) && !repaired.includes('\uFFFD')) {
+                name = repaired;
+            }
+        }
+    } catch (_) { /* keep original */ }
+    // 去掉路径成分，只保留文件名
+    name = name.replace(/\\/g, '/').split('/').pop() || 'image';
+    return name;
+}
+
+function sanitizeFilenameBase(base) {
+    let s = String(base || 'image')
+        .normalize('NFC')
+        .replace(/[\u0000-\u001f\u007f]/g, '')
+        .replace(/[\/\\?%*:|"<>]/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^\.+/, '')
+        .trim();
+    if (!s || s === '.' || s === '..') s = 'image';
+    // 过长截断（保留中文语义前缀）
+    if ([...s].length > 60) s = [...s].slice(0, 60).join('');
+    return s;
+}
+
+function extFromMime(mimetype) {
+    const map = {
+        'image/jpeg': '.jpg',
+        'image/jpg': '.jpg',
+        'image/png': '.png',
+        'image/webp': '.webp',
+        'image/gif': '.gif',
+        'image/bmp': '.bmp'
+    };
+    return map[mimetype] || '';
+}
+
 // multer 上传配置
 const storage = multer.diskStorage({
     destination: async function (req, file, cb) {
-        await fs.mkdir(DIR_RAW, { recursive: true });
-        cb(null, DIR_RAW);
+        try {
+            await fs.mkdir(DIR_RAW, { recursive: true });
+            cb(null, DIR_RAW);
+        } catch (e) {
+            cb(e);
+        }
     },
     filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
-        const base = path.basename(file.originalname, ext);
-        cb(null, `${base}-${uniqueSuffix}${ext}`);
+        try {
+            const decoded = decodeUploadFilename(file.originalname);
+            // 挂到 file 上，供入库展示用
+            file.decodedOriginalName = decoded;
+
+            let ext = path.extname(decoded).toLowerCase();
+            if (!ext || ext.length > 6) {
+                ext = extFromMime(file.mimetype) || '.jpg';
+            }
+            const rawBase = path.basename(decoded, path.extname(decoded));
+            const base = sanitizeFilenameBase(rawBase);
+            const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            const finalName = `${base}_${unique}${ext}`;
+            cb(null, finalName);
+        } catch (e) {
+            const fallback = `img_${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+            cb(null, fallback);
+        }
     }
 });
 const upload = multer({ storage: storage });
@@ -37,24 +147,50 @@ const upload = multer({ storage: storage });
 app.use('/assets/raw', express.static(DIR_RAW));
 
 // 2. 获取所有的图片列表（来自数据库）
+// isAnnotated 以真实 annotations 数量为准，并回写纠偏 is_annotated 脏标记
 app.get('/api/assets', async (req, res) => {
     try {
         const db = getDB();
         const assets = db.prepare(`
             SELECT a.*, 
             (SELECT json_group_array(json_object('id', id, 'shape', shape, 'rect', json_object('x', x, 'y', y, 'w', w, 'h', h), 'clauseId', clause_id, 'scoreWeight', score_weight, 'description', description))
-             FROM annotations WHERE asset_id = a.id) as annotations_json
+             FROM annotations WHERE asset_id = a.id) as annotations_json,
+            (SELECT count(*) FROM annotations WHERE asset_id = a.id) as anno_count
             FROM assets a
             ORDER BY upload_time DESC
         `).all();
 
-        const data = assets.map(a => ({
-            name: a.id,
-            url: a.path,
-            baseName: path.basename(a.id, path.extname(a.id)),
-            isAnnotated: a.is_annotated === 1,
-            meta: { items: JSON.parse(a.annotations_json || '[]') }
-        }));
+        const fixFlag = db.prepare('UPDATE assets SET is_annotated = ? WHERE id = ?');
+        const data = assets.map(a => {
+            let items = [];
+            try {
+                items = JSON.parse(a.annotations_json || '[]');
+                // sqlite json_group_array 无行时可能返回 "[null]"
+                if (!Array.isArray(items) || (items.length === 1 && items[0] == null)) items = [];
+            } catch (_) { items = []; }
+
+            const count = Number(a.anno_count) || items.length;
+            const isAnnotated = count > 0;
+            // 纠偏脏标记，避免组卷中心「可组卷案例」被 is_annotated=0 滤空
+            if ((a.is_annotated === 1) !== isAnnotated) {
+                try { fixFlag.run(isAnnotated ? 1 : 0, a.id); } catch (_) { /* ignore */ }
+            }
+
+            // 展示名：优先 original_name，否则从磁盘文件名去掉 _时间戳 后缀
+            let displayName = a.original_name || null;
+            if (!displayName) {
+                const rawBase = path.basename(a.id, path.extname(a.id));
+                displayName = rawBase.replace(/_\d{10,}-\w{4,8}$/, '') || rawBase;
+            }
+            return {
+                name: a.id,
+                url: a.path,
+                baseName: displayName,
+                originalName: a.original_name || displayName,
+                isAnnotated,
+                meta: { items }
+            };
+        });
 
         res.json({ status: "success", data });
     } catch (err) {
@@ -62,18 +198,51 @@ app.get('/api/assets', async (req, res) => {
     }
 });
 
-// 3. 上传新图片 (同步写入数据库)
-app.post('/api/assets/upload', upload.single('image'), async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: '没有上传任何文件' });
+// 3. 上传新图片 (同步写入数据库) — 支持单文件 image 或多文件 images
+// filename 存磁盘唯一名；metadata 可存原始中文名便于展示
+app.post('/api/assets/upload', upload.any(), async (req, res) => {
+    const files = (req.files && req.files.length) ? req.files : (req.file ? [req.file] : []);
+    if (!files.length) return res.status(400).json({ error: '没有上传任何文件' });
 
     try {
         const db = getDB();
-        const filename = req.file.filename;
-        db.prepare('INSERT INTO assets (id, filename, path, upload_time) VALUES (?, ?, ?, ?)')
-            .run(filename, filename, `/assets/raw/${filename}`, Date.now());
+        // 兼容旧库：补 original_name 列
+        try { db.exec('ALTER TABLE assets ADD COLUMN original_name TEXT'); } catch (_) { /* exists */ }
 
-        res.json({ status: "success", file: filename });
+        const insert = db.prepare(
+            'INSERT INTO assets (id, filename, path, upload_time, original_name) VALUES (?, ?, ?, ?, ?)'
+        );
+        const saved = [];
+        const tx = db.transaction(() => {
+            for (const f of files) {
+                if (!f.mimetype || !f.mimetype.startsWith('image/')) continue;
+                const original = f.decodedOriginalName || decodeUploadFilename(f.originalname);
+                insert.run(
+                    f.filename,
+                    f.filename,
+                    `/assets/raw/${f.filename}`,
+                    Date.now(),
+                    original
+                );
+                saved.push({
+                    file: f.filename,
+                    originalName: original,
+                    url: `/assets/raw/${f.filename}`
+                });
+            }
+        });
+        tx();
+        if (!saved.length) return res.status(400).json({ error: '没有有效的图片文件' });
+        res.json({
+            status: 'success',
+            file: saved[0].file,
+            originalName: saved[0].originalName,
+            files: saved.map(s => s.file),
+            items: saved,
+            count: saved.length
+        });
     } catch (e) {
+        console.error('[upload]', e);
         res.status(500).json({ error: e.message });
     }
 });
@@ -356,14 +525,100 @@ app.delete('/api/admin/knowledge/items/:id', (req, res) => {
 });
 
 
-// 7. 保存用户成绩
+// 7. 保存用户成绩 + 学情物化（attempt_stats / knowledge_error_facts）
 app.post('/api/session/record', async (req, res) => {
     try {
         const db = getDB();
-        const { examId, userName, score, completedAt } = req.body;
-        db.prepare('INSERT INTO records (exam_id, user_name, score, completed_at) VALUES (?, ?, ?, ?)')
-            .run(examId, userName, score, completedAt || Date.now());
-        res.json({ status: "success" });
+        const {
+            examId, userName, score, completedAt, department, employeeId, duration,
+            paperTotal, userId, mode, sessionLog, examName, departmentId,
+            hazardsTotal, slideCount
+        } = req.body;
+        if (!userName || !String(userName).trim()) {
+            return res.status(400).json({ error: '姓名不能为空' });
+        }
+
+        const attemptMode = (mode === 'practice') ? 'practice' : 'exam';
+        let maxScore = 100;
+        let snapshotName = examName || examId || 'unknown';
+        let slides = Number(slideCount) || 1;
+        if (paperTotal != null && Number(paperTotal) > 0) {
+            maxScore = Number(paperTotal);
+        }
+        if (examId) {
+            const exam = db.prepare('SELECT exam_name, settings FROM exams WHERE id = ?').get(examId);
+            if (exam) {
+                snapshotName = exam.exam_name || examId;
+                if (paperTotal == null) {
+                    const s = parseExamSettings(exam.settings);
+                    maxScore = s.totalScore || 100;
+                }
+            }
+            if (!slideCount) {
+                const n = db.prepare('SELECT count(*) as c FROM exam_items WHERE exam_id = ?').get(examId)?.c;
+                if (n) slides = n;
+            }
+        }
+
+        const raw = Math.round(Number(score) || 0);
+        const finalScore = Math.max(0, Math.min(maxScore, raw));
+        const logJson = sessionLog != null ? JSON.stringify(sessionLog) : null;
+        const completed = completedAt || Date.now();
+
+        const info = db.prepare(`
+            INSERT INTO records (
+                exam_id, exam_name, user_name, user_id, score, paper_total, mode,
+                completed_at, department, department_id, employee_id, duration, session_log
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            examId || 'unknown',
+            snapshotName,
+            String(userName).trim(),
+            userId || null,
+            finalScore,
+            maxScore,
+            attemptMode,
+            completed,
+            department ? String(department).trim() : null,
+            departmentId || null,
+            employeeId ? String(employeeId).trim() : null,
+            duration != null ? Number(duration) : null,
+            logJson
+        );
+
+        const recordId = info.lastInsertRowid;
+        const recordRow = {
+            user_id: userId || null,
+            department_id: departmentId || null,
+            exam_id: examId || 'unknown',
+            exam_name: snapshotName,
+            user_name: String(userName).trim(),
+            mode: attemptMode,
+            score: finalScore,
+            paper_total: maxScore,
+            duration: duration != null ? Number(duration) : null,
+            completed_at: completed
+        };
+
+        let mat = null;
+        try {
+            mat = analytics.materializeAttempt(db, recordId, recordRow, sessionLog || [], {
+                hazardsTotal: hazardsTotal != null ? Number(hazardsTotal) : undefined,
+                slideCount: slides
+            });
+        } catch (me) {
+            console.error('[analytics materialize]', me);
+        }
+
+        res.json({
+            status: "success",
+            score: finalScore,
+            capped: finalScore !== raw,
+            mode: attemptMode,
+            recordId,
+            pri: mat?.stats?.pri ?? null,
+            invalidClicks: mat?.stats?.invalidClicks ?? null
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -372,7 +627,7 @@ app.post('/api/session/record', async (req, res) => {
 // 8. 组卷保存/发布
 app.post('/api/exams/publish', async (req, res) => {
     const db = getDB();
-    const { examName, description, slides, status, total_score, scoring_rule } = req.body;
+    const { examName, description, slides, status, total_score, scoring_rule, time_limit_sec } = req.body;
     const examId = examName;
     const finalStatus = status || 'published';
 
@@ -382,7 +637,8 @@ app.post('/api/exams/publish', async (req, res) => {
 
     const settings = JSON.stringify({
         totalScore: total_score || 100,
-        scoringRule: scoring_rule || 'weighted'
+        scoringRule: scoring_rule || 'weighted',
+        timeLimitSec: time_limit_sec != null ? Number(time_limit_sec) : 0
     });
 
     const tx = db.transaction((data) => {
@@ -404,6 +660,45 @@ app.post('/api/exams/publish', async (req, res) => {
     }
 });
 
+// 解析考卷 settings JSON（兼容旧数据）
+function parseExamSettings(settingsRaw) {
+    let totalScore = 100;
+    let scoringRule = 'weighted';
+    let timeLimitSec = 0;
+    try {
+        const s = typeof settingsRaw === 'string' ? JSON.parse(settingsRaw || '{}') : (settingsRaw || {});
+        if (s.totalScore != null) totalScore = Number(s.totalScore) || 100;
+        if (s.total_score != null) totalScore = Number(s.total_score) || 100;
+        if (s.scoringRule) scoringRule = s.scoringRule;
+        if (s.scoring_rule) scoringRule = s.scoring_rule;
+        if (s.timeLimitSec != null) timeLimitSec = Number(s.timeLimitSec) || 0;
+        if (s.time_limit_sec != null) timeLimitSec = Number(s.time_limit_sec) || 0;
+    } catch (_) { /* keep defaults */ }
+    return {
+        totalScore, scoringRule, timeLimitSec,
+        total_score: totalScore, scoring_rule: scoringRule, time_limit_sec: timeLimitSec
+    };
+}
+
+function mapExamRow(e, items) {
+    const settings = parseExamSettings(e.settings);
+    return {
+        name: e.id,
+        examName: e.exam_name,
+        description: e.description,
+        status: e.status || 'published',
+        slides: items.map(i => i.asset_id),
+        mtime: e.created_at,
+        settings,
+        totalScore: settings.totalScore,
+        scoringRule: settings.scoringRule,
+        timeLimitSec: settings.timeLimitSec,
+        total_score: settings.totalScore,
+        scoring_rule: settings.scoringRule,
+        time_limit_sec: settings.timeLimitSec
+    };
+}
+
 // 9. 拉取最新考卷
 app.get('/api/exams/latest', async (req, res) => {
     try {
@@ -412,12 +707,7 @@ app.get('/api/exams/latest', async (req, res) => {
         if (!exam) return res.status(404).json({ error: "No exams found" });
 
         const items = db.prepare('SELECT asset_id FROM exam_items WHERE exam_id = ? ORDER BY order_index ASC').all(exam.id);
-
-        res.json({
-            examName: exam.exam_name,
-            description: exam.description,
-            slides: items.map(i => i.asset_id)
-        });
+        res.json(mapExamRow(exam, items));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -431,14 +721,7 @@ app.get('/api/exams', async (req, res) => {
 
         const data = exams.map(e => {
             const items = db.prepare('SELECT asset_id FROM exam_items WHERE exam_id = ? ORDER BY order_index ASC').all(e.id);
-            return {
-                name: e.id,
-                examName: e.exam_name,
-                description: e.description,
-                status: e.status || 'published', // 考虑到老数据可能是 active 等
-                slides: items.map(i => i.asset_id),
-                mtime: e.created_at
-            };
+            return mapExamRow(e, items);
         });
         res.json(data);
     } catch (err) {
@@ -446,12 +729,32 @@ app.get('/api/exams', async (req, res) => {
     }
 });
 
-// 9.2 删除试卷
+// 9.2 删除试卷（绝不删除 records；先补齐 exam_name 快照）
 app.delete('/api/exams/:id', async (req, res) => {
     try {
         const db = getDB();
-        db.prepare('DELETE FROM exams WHERE id = ?').run(req.params.id);
-        res.json({ status: "success" });
+        const examId = req.params.id;
+        const exam = db.prepare('SELECT exam_name FROM exams WHERE id = ?').get(examId);
+        const snapName = exam?.exam_name || examId;
+        const kept = db.prepare('SELECT count(*) as c FROM records WHERE exam_id = ?').get(examId)?.c || 0;
+
+        const tx = db.transaction(() => {
+            // 保证删卷后龙虎榜/报表仍能显示卷名
+            db.prepare(`
+                UPDATE records SET exam_name = COALESCE(NULLIF(exam_name, ''), ?)
+                WHERE exam_id = ?
+            `).run(snapName, examId);
+            db.prepare('DELETE FROM exam_items WHERE exam_id = ?').run(examId);
+            db.prepare('DELETE FROM exams WHERE id = ?').run(examId);
+            // records 故意不删
+        });
+        tx();
+        res.json({
+            status: "success",
+            message: `试卷已删除；保留 ${kept} 条历史成绩，可在报表/龙虎榜按 exam_id 查询`,
+            recordsKept: kept,
+            examId
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -470,29 +773,568 @@ app.put('/api/exams/:id/status', async (req, res) => {
 });
 
 // 10. 龙虎榜数据
+// rankMode=best|all；attemptMode=exam|practice|all（默认 exam，练习不上正式榜）
+// 即使试卷已删除，仍可按 exam_id 查询历史 records
 app.get('/api/session/records/latest', async (req, res) => {
     try {
         const db = getDB();
-        const examId = req.query.examId;
-        let query = 'SELECT * FROM records';
-        let params = [];
+        const examId = req.query.examId || null;
+        const rankMode = (req.query.mode || 'best').toLowerCase();
+        const attemptMode = (req.query.attemptMode || 'exam').toLowerCase();
+        const modeVal = attemptMode === 'all' ? null : (attemptMode === 'practice' ? 'practice' : 'exam');
 
-        if (examId) {
-            query += ' WHERE exam_id = ?';
-            params.push(examId);
+        const whereParts = [];
+        const params = [];
+        if (examId) { whereParts.push('exam_id = ?'); params.push(examId); }
+        if (modeVal) { whereParts.push("COALESCE(mode, 'exam') = ?"); params.push(modeVal); }
+        const whereSql = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+        if (rankMode === 'all') {
+            const rows = db.prepare(`SELECT * FROM records ${whereSql} ORDER BY score DESC, completed_at DESC LIMIT 50`).all(...params);
+            return res.json(rows.map(mapRecordRow));
         }
-        query += ' ORDER BY score DESC, completed_at DESC LIMIT 20';
 
-        const records = db.prepare(query).all(...params);
-        res.json(records.map(r => ({
-            userName: r.user_name,
-            examId: r.exam_id,
-            score: r.score,
-            completedAt: r.completed_at
-        })));
+        // best：每人（user_id 优先，否则姓名+部门）最高分
+        const rows = db.prepare(`
+            SELECT r.* FROM records r
+            INNER JOIN (
+                SELECT
+                    exam_id,
+                    COALESCE(user_id, '') AS uid,
+                    LOWER(TRIM(user_name)) AS uname,
+                    COALESCE(TRIM(department), '') AS dept,
+                    MAX(score) AS max_score
+                FROM records
+                ${whereSql}
+                GROUP BY exam_id, COALESCE(user_id, ''), LOWER(TRIM(user_name)), COALESCE(TRIM(department), '')
+            ) t ON r.exam_id = t.exam_id
+                AND COALESCE(r.user_id, '') = t.uid
+                AND LOWER(TRIM(r.user_name)) = t.uname
+                AND COALESCE(TRIM(r.department), '') = t.dept
+                AND r.score = t.max_score
+            GROUP BY r.exam_id, COALESCE(r.user_id, ''), LOWER(TRIM(r.user_name)), COALESCE(TRIM(r.department), '')
+            ORDER BY r.score DESC, r.completed_at ASC
+            LIMIT 20
+        `).all(...params);
+        res.json(rows.map(mapRecordRow));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+function mapRecordRow(r) {
+    return {
+        id: r.id,
+        userName: r.user_name,
+        userId: r.user_id || null,
+        examId: r.exam_id,
+        examName: r.exam_name || r.exam_id,
+        score: r.score,
+        paperTotal: r.paper_total != null ? r.paper_total : null,
+        mode: r.mode || 'exam',
+        completedAt: r.completed_at,
+        department: r.department || null,
+        departmentId: r.department_id || null,
+        employeeId: r.employee_id || null,
+        duration: r.duration != null ? r.duration : null,
+        hasSessionLog: !!(r.session_log)
+    };
+}
+
+// ========== 组织 / 部门 / 用户 ==========
+app.get('/api/org', (req, res) => {
+    try {
+        const db = getDB();
+        const org = db.prepare('SELECT * FROM organizations ORDER BY created_at ASC LIMIT 1').get();
+        res.json(org || null);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/org/departments', (req, res) => {
+    try {
+        const rows = getDB().prepare('SELECT * FROM departments ORDER BY sort_order ASC, name ASC').all();
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/org/departments', (req, res) => {
+    try {
+        const db = getDB();
+        const { name, parent_id, org_id } = req.body;
+        if (!name || !String(name).trim()) {
+            return res.status(400).json({ error: '部门名称必填' });
+        }
+        let org = org_id || db.prepare('SELECT id FROM organizations LIMIT 1').get()?.id;
+        if (!org) {
+            org = 'org_default';
+            db.prepare('INSERT OR IGNORE INTO organizations (id, name, code, created_at) VALUES (?, ?, ?, ?)')
+                .run(org, '默认企业', 'DEFAULT', Date.now());
+        }
+        let parent = parent_id && String(parent_id).trim() ? String(parent_id).trim() : null;
+        if (parent) {
+            const p = db.prepare('SELECT id FROM departments WHERE id = ?').get(parent);
+            if (!p) return res.status(400).json({ error: '上级部门不存在' });
+        }
+        const id = newId('dept');
+        const countRow = db.prepare('SELECT count(*) as c FROM departments WHERE org_id = ?').get(org);
+        const count = countRow?.c ?? 0;
+        db.prepare('INSERT INTO departments (id, org_id, parent_id, name, sort_order) VALUES (?, ?, ?, ?, ?)')
+            .run(id, org, parent, String(name).trim(), count);
+        res.json({ id, org_id: org, parent_id: parent, name: String(name).trim(), sort_order: count });
+    } catch (e) {
+        console.error('[departments POST]', e);
+        res.status(500).json({ error: e.message || '添加部门失败' });
+    }
+});
+
+app.put('/api/org/departments/:id', (req, res) => {
+    try {
+        const db = getDB();
+        const id = req.params.id;
+        const existing = db.prepare('SELECT * FROM departments WHERE id = ?').get(id);
+        if (!existing) return res.status(404).json({ error: '部门不存在' });
+
+        const name = req.body.name != null ? String(req.body.name).trim() : existing.name;
+        if (!name) return res.status(400).json({ error: '部门名称必填' });
+
+        let parent = req.body.parent_id;
+        if (parent === '' || parent === undefined) parent = null;
+        if (parent === id) return res.status(400).json({ error: '不能将自己设为上级部门' });
+
+        if (parent) {
+            const p = db.prepare('SELECT id FROM departments WHERE id = ?').get(parent);
+            if (!p) return res.status(400).json({ error: '上级部门不存在' });
+            // 防止成环：parent 不能是自己的子孙
+            let cursor = parent;
+            const seen = new Set();
+            while (cursor) {
+                if (cursor === id) return res.status(400).json({ error: '不能选择自己的下级作为上级' });
+                if (seen.has(cursor)) break;
+                seen.add(cursor);
+                cursor = db.prepare('SELECT parent_id FROM departments WHERE id = ?').get(cursor)?.parent_id;
+            }
+        }
+
+        db.prepare('UPDATE departments SET name = ?, parent_id = ? WHERE id = ?')
+            .run(name, parent, id);
+        res.json({ status: 'success', id, name, parent_id: parent });
+    } catch (e) {
+        console.error('[departments PUT]', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/org/departments/:id', (req, res) => {
+    try {
+        const db = getDB();
+        const child = db.prepare('SELECT count(*) as c FROM departments WHERE parent_id = ?').get(req.params.id).c;
+        if (child > 0) return res.status(400).json({ error: '请先删除子部门' });
+        db.prepare('UPDATE user_profiles SET department_id = NULL WHERE department_id = ?').run(req.params.id);
+        db.prepare('DELETE FROM departments WHERE id = ?').run(req.params.id);
+        res.json({ status: 'success' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/org/users', (req, res) => {
+    try {
+        const db = getDB();
+        const { department_id, q, status } = req.query;
+        let sql = `
+            SELECT u.id, u.username, u.role, u.status, u.created_at, u.org_id,
+                   p.real_name, p.employee_no, p.mobile, p.email, p.department_id, p.job_title,
+                   d.name as department_name
+            FROM users u
+            LEFT JOIN user_profiles p ON p.user_id = u.id
+            LEFT JOIN departments d ON d.id = p.department_id
+            WHERE 1=1
+        `;
+        const params = [];
+        if (department_id) { sql += ' AND p.department_id = ?'; params.push(department_id); }
+        if (status) { sql += ' AND u.status = ?'; params.push(status); }
+        if (q) {
+            sql += ' AND (u.username LIKE ? OR p.real_name LIKE ? OR p.employee_no LIKE ?)';
+            const like = `%${q}%`;
+            params.push(like, like, like);
+        }
+        sql += ' ORDER BY u.created_at DESC';
+        res.json(db.prepare(sql).all(...params));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/org/users', (req, res) => {
+    try {
+        const db = getDB();
+        const { username, password, role, real_name, employee_no, mobile, department_id, job_title } = req.body;
+        if (!username?.trim() || !password) return res.status(400).json({ error: '用户名与密码必填' });
+        if (!real_name?.trim()) return res.status(400).json({ error: '真实姓名必填' });
+        const org = db.prepare('SELECT id FROM organizations LIMIT 1').get()?.id;
+        const id = newId('user');
+        const now = Date.now();
+        db.transaction(() => {
+            db.prepare('INSERT INTO users (id, org_id, username, password_hash, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                .run(id, org, username.trim(), hashPassword(password), role || 'trainee', 'active', now);
+            db.prepare(`INSERT INTO user_profiles (user_id, real_name, employee_no, mobile, department_id, job_title)
+                        VALUES (?, ?, ?, ?, ?, ?)`)
+                .run(id, real_name.trim(), employee_no || '', mobile || '', department_id || null, job_title || '');
+        })();
+        res.json({ id, username: username.trim(), real_name: real_name.trim() });
+    } catch (e) {
+        if (String(e.message).includes('UNIQUE')) return res.status(400).json({ error: '用户名已存在' });
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.put('/api/org/users/:id', (req, res) => {
+    try {
+        const db = getDB();
+        const id = req.params.id;
+        const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+        if (!u) return res.status(404).json({ error: '用户不存在' });
+
+        const {
+            username, role, status, real_name, employee_no, mobile,
+            department_id, job_title, password, email
+        } = req.body;
+
+        if (username != null && String(username).trim()) {
+            const taken = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?')
+                .get(String(username).trim(), id);
+            if (taken) return res.status(400).json({ error: '用户名已被占用' });
+        }
+
+        if (department_id) {
+            const d = db.prepare('SELECT id FROM departments WHERE id = ?').get(department_id);
+            if (!d) return res.status(400).json({ error: '所属部门不存在' });
+        }
+
+        const prof = db.prepare('SELECT * FROM user_profiles WHERE user_id = ?').get(id);
+
+        db.transaction(() => {
+            if (username != null && String(username).trim()) {
+                db.prepare('UPDATE users SET username = ? WHERE id = ?').run(String(username).trim(), id);
+            }
+            if (role) db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id);
+            if (status) db.prepare('UPDATE users SET status = ? WHERE id = ?').run(status, id);
+            if (password && String(password).trim()) {
+                db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), id);
+            }
+
+            const nextName = real_name != null ? String(real_name).trim() : (prof?.real_name || '');
+            if (!nextName) throw new Error('真实姓名必填');
+
+            // 明确传 department_id 时更新（空串=清空）；不传则保持
+            const deptVal = Object.prototype.hasOwnProperty.call(req.body, 'department_id')
+                ? (department_id || null)
+                : (prof?.department_id || null);
+
+            if (prof) {
+                db.prepare(`
+                    UPDATE user_profiles SET
+                        real_name = ?,
+                        employee_no = ?,
+                        mobile = ?,
+                        email = ?,
+                        department_id = ?,
+                        job_title = ?
+                    WHERE user_id = ?
+                `).run(
+                    nextName,
+                    employee_no != null ? String(employee_no) : (prof.employee_no || ''),
+                    mobile != null ? String(mobile) : (prof.mobile || ''),
+                    email != null ? String(email) : (prof.email || ''),
+                    deptVal,
+                    job_title != null ? String(job_title) : (prof.job_title || ''),
+                    id
+                );
+            } else {
+                db.prepare(`
+                    INSERT INTO user_profiles (user_id, real_name, employee_no, mobile, email, department_id, job_title)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                `).run(
+                    id, nextName,
+                    employee_no || '', mobile || '', email || '',
+                    deptVal, job_title || ''
+                );
+            }
+        })();
+        res.json({ status: 'success' });
+    } catch (e) {
+        console.error('[users PUT]', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/org/users/:id', (req, res) => {
+    try {
+        // 软删：禁用账号，成绩保留
+        getDB().prepare("UPDATE users SET status = 'disabled' WHERE id = ?").run(req.params.id);
+        res.json({ status: 'success' });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 学员/员工登录（可选，与管理 PIN 分离）
+app.post('/api/auth/login', (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const db = getDB();
+        const u = db.prepare('SELECT * FROM users WHERE username = ?').get(username?.trim());
+        if (!u || u.status !== 'active' || !verifyPassword(password, u.password_hash)) {
+            return res.status(401).json({ error: '用户名或密码错误' });
+        }
+        const p = db.prepare(`
+            SELECT p.*, d.name as department_name FROM user_profiles p
+            LEFT JOIN departments d ON d.id = p.department_id WHERE p.user_id = ?
+        `).get(u.id);
+        res.json({
+            status: 'success',
+            user: {
+                id: u.id,
+                username: u.username,
+                role: u.role,
+                realName: p?.real_name || u.username,
+                employeeNo: p?.employee_no || '',
+                departmentId: p?.department_id || null,
+                departmentName: p?.department_name || '',
+                mobile: p?.mobile || ''
+            }
+        });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 开考用：活跃人员名册（可下拉选择）
+app.get('/api/org/roster', (req, res) => {
+    try {
+        const rows = getDB().prepare(`
+            SELECT u.id as userId, u.username, p.real_name as realName, p.employee_no as employeeNo,
+                   p.department_id as departmentId, d.name as departmentName
+            FROM users u
+            JOIN user_profiles p ON p.user_id = u.id
+            LEFT JOIN departments d ON d.id = p.department_id
+            WHERE u.status = 'active' AND u.role IN ('trainee', 'trainer', 'admin')
+            ORDER BY d.name ASC, p.real_name ASC
+        `).all();
+        res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ========== 报表 / 导出 / 薄弱点 ==========
+app.get('/api/admin/reports/records', (req, res) => {
+    try {
+        const db = getDB();
+        const { examId, department, userName, mode, limit } = req.query;
+        let sql = 'SELECT * FROM records WHERE 1=1';
+        const params = [];
+        if (examId) { sql += ' AND exam_id = ?'; params.push(examId); }
+        if (department) { sql += ' AND department LIKE ?'; params.push(`%${department}%`); }
+        if (userName) { sql += ' AND user_name LIKE ?'; params.push(`%${userName}%`); }
+        if (mode && mode !== 'all') { sql += " AND COALESCE(mode, 'exam') = ?"; params.push(mode); }
+        sql += ' ORDER BY completed_at DESC LIMIT ?';
+        params.push(Math.min(Number(limit) || 200, 1000));
+        const rows = db.prepare(sql).all(...params);
+        // 标记试卷是否仍存在
+        const examIds = [...new Set(rows.map(r => r.exam_id))];
+        const existing = new Set(
+            examIds.length
+                ? db.prepare(`SELECT id FROM exams WHERE id IN (${examIds.map(() => '?').join(',')})`).all(...examIds).map(e => e.id)
+                : []
+        );
+        res.json(rows.map(r => ({
+            ...mapRecordRow(r),
+            examDeleted: !existing.has(r.exam_id),
+            sessionLog: r.session_log ? JSON.parse(r.session_log) : null
+        })));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/reports/export.csv', (req, res) => {
+    try {
+        const db = getDB();
+        const { examId, mode } = req.query;
+        let sql = 'SELECT * FROM records WHERE 1=1';
+        const params = [];
+        if (examId) { sql += ' AND exam_id = ?'; params.push(examId); }
+        if (mode && mode !== 'all') { sql += " AND COALESCE(mode, 'exam') = ?"; params.push(mode); }
+        sql += ' ORDER BY completed_at DESC LIMIT 5000';
+        const rows = db.prepare(sql).all(...params);
+        const header = ['id', 'exam_id', 'exam_name', 'user_name', 'user_id', 'department', 'employee_id', 'score', 'paper_total', 'mode', 'duration_ms', 'completed_at'];
+        const lines = [header.join(',')];
+        for (const r of rows) {
+            lines.push([
+                r.id,
+                csvEscape(r.exam_id),
+                csvEscape(r.exam_name || r.exam_id),
+                csvEscape(r.user_name),
+                csvEscape(r.user_id || ''),
+                csvEscape(r.department || ''),
+                csvEscape(r.employee_id || ''),
+                r.score,
+                r.paper_total ?? '',
+                r.mode || 'exam',
+                r.duration ?? '',
+                r.completed_at ? new Date(r.completed_at).toISOString() : ''
+            ].join(','));
+        }
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="safespot-records.csv"');
+        res.send('\uFEFF' + lines.join('\n'));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+function csvEscape(v) {
+    const s = String(v ?? '');
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+}
+
+// 知识薄弱 Top：仅 unfound（不含 miss 无效点击，避免 unknown）
+app.get('/api/admin/reports/weak-items', (req, res) => {
+    try {
+        const db = getDB();
+        const filters = analytics.buildFilters(req.query, db);
+        const level = req.query.level || 'L3';
+        const limit = Number(req.query.limit) || 20;
+        // 优先物化表
+        const fromFacts = db.prepare('SELECT count(*) as c FROM knowledge_error_facts').get()?.c || 0;
+        if (fromFacts > 0) {
+            const rows = analytics.aggregateKnowledge(db, filters, level === 'L1' ? 'L1' : level === 'L2' ? 'L2' : 'L3')
+                .filter(r => r.unfound > 0)
+                .slice(0, limit)
+                .map(r => ({
+                    key: r.id,
+                    clauseId: level === 'L3' ? r.id : null,
+                    label: r.name,
+                    count: r.unfound,
+                    exposure: r.exposure,
+                    unfoundRate: r.unfoundRate,
+                    mastery: r.mastery,
+                    severityScore: r.severityScore
+                }));
+            return res.json(rows);
+        }
+        // 回退：扫 session_log 仅 unfound
+        let sql = "SELECT session_log FROM records WHERE session_log IS NOT NULL AND COALESCE(mode,'exam') = 'exam'";
+        const params = [];
+        if (req.query.examId) { sql += ' AND exam_id = ?'; params.push(req.query.examId); }
+        sql += ' ORDER BY completed_at DESC LIMIT 500';
+        const rows = db.prepare(sql).all(...params);
+        const missMap = {};
+        for (const r of rows) {
+            let log;
+            try { log = JSON.parse(r.session_log); } catch { continue; }
+            if (!Array.isArray(log)) continue;
+            for (const ev of log) {
+                if (ev.result !== 'unfound') continue;
+                const key = ev.clauseId || ev.itemId;
+                if (!key) continue;
+                if (!missMap[key]) {
+                    missMap[key] = { key, clauseId: ev.clauseId || null, itemId: ev.itemId || null, count: 0, label: ev.label || key };
+                }
+                missMap[key].count++;
+            }
+        }
+        res.json(Object.values(missMap).sort((a, b) => b.count - a.count).slice(0, limit));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ========== 学情分析 Analytics ==========
+app.get('/api/admin/analytics/summary', (req, res) => {
+    try {
+        const db = getDB();
+        const filters = analytics.buildFilters(req.query, db);
+        res.json(analytics.getSummary(db, filters));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/analytics/knowledge', (req, res) => {
+    try {
+        const db = getDB();
+        const filters = analytics.buildFilters(req.query, db);
+        res.json({
+            L1: analytics.aggregateKnowledge(db, filters, 'L1'),
+            L2: analytics.aggregateKnowledge(db, filters, 'L2'),
+            L3: analytics.aggregateKnowledge(db, filters, 'L3').slice(0, Number(req.query.limit) || 50)
+        });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/analytics/org', (req, res) => {
+    try {
+        const db = getDB();
+        res.json(analytics.getOrgAnalytics(db, analytics.buildFilters(req.query, db)));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/analytics/proficiency', (req, res) => {
+    try {
+        const db = getDB();
+        res.json(analytics.getProficiency(db, analytics.buildFilters(req.query, db)));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/analytics/insights', (req, res) => {
+    try {
+        const db = getDB();
+        res.json({ insights: analytics.buildInsights(db, analytics.buildFilters(req.query, db)) });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/analytics/overview', (req, res) => {
+    try {
+        res.json(analytics.buildOverview(getDB(), req.query));
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 筛选器用：试卷列表 + 部门树
+app.get('/api/admin/analytics/filters', (req, res) => {
+    try {
+        const db = getDB();
+        const exams = db.prepare(`
+            SELECT exam_id as id, MAX(exam_name) as exam_name, count(*) as record_count,
+                   MAX(completed_at) as last_at
+            FROM records GROUP BY exam_id ORDER BY last_at DESC
+        `).all();
+        const live = new Set(db.prepare('SELECT id FROM exams').all().map(e => e.id));
+        // 也并入尚无成绩的已发布卷
+        const published = db.prepare(`SELECT id, exam_name FROM exams WHERE status = 'published'`).all();
+        const examMap = new Map(exams.map(e => [e.id, {
+            id: e.id,
+            examName: e.exam_name || e.id,
+            recordCount: e.record_count,
+            deleted: !live.has(e.id)
+        }]));
+        for (const p of published) {
+            if (!examMap.has(p.id)) {
+                examMap.set(p.id, { id: p.id, examName: p.exam_name, recordCount: 0, deleted: false });
+            }
+        }
+        const departments = db.prepare('SELECT id, name, parent_id, sort_order FROM departments ORDER BY sort_order, name').all();
+        res.json({
+            exams: [...examMap.values()],
+            departments
+        });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 成绩卷宗列表（含已删试卷的 exam_id，便于报表筛选）
+app.get('/api/admin/reports/exam-ids', (req, res) => {
+    try {
+        const db = getDB();
+        const fromRecords = db.prepare(`
+            SELECT exam_id as id, MAX(exam_name) as exam_name, count(*) as record_count,
+                   MAX(completed_at) as last_at
+            FROM records GROUP BY exam_id ORDER BY last_at DESC
+        `).all();
+        const live = new Set(db.prepare('SELECT id FROM exams').all().map(e => e.id));
+        res.json(fromRecords.map(r => ({
+            id: r.id,
+            examName: r.exam_name || r.id,
+            recordCount: r.record_count,
+            deleted: !live.has(r.id)
+        })));
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // 11. 数据库巡检：查询任意表内容
@@ -503,7 +1345,9 @@ app.get('/api/admin/db/query/:table', async (req, res) => {
         const validTables = [
             'assets', 'annotations', 'exams', 'exam_items', 'records',
             'knowledge_scenes', 'knowledge_categories', 'knowledge_items',
-            'risk_dictionary', '_legacy_knowledge'
+            'risk_dictionary', '_legacy_knowledge',
+            'organizations', 'departments', 'users', 'user_profiles',
+            'attempt_stats', 'knowledge_error_facts'
         ];
         if (!validTables.includes(table)) {
             return res.status(400).json({ error: "Invalid table name" });
@@ -537,9 +1381,14 @@ app.post('/api/admin/cleanup', async (req, res) => {
     }
 });
 
-const PORT = 3000;
-const fsSync = require('fs'); // 补充同步引用用于检查逻辑
-app.listen(PORT, async () => {
+const PORT = Number(process.env.PORT) || 3000;
+(async () => {
     await initDB();
-    console.log(`[SafeEYE-SQL] 后端服务已启动，端口 ${PORT}`);
+    app.listen(PORT, () => {
+        console.log(`[SafeSpot] 后端服务已启动，端口 ${PORT} · v${APP_VERSION}`);
+        console.log(`[SafeSpot] 管理端默认 PIN 可通过环境变量 ADMIN_PIN 覆盖（默认: safeeye）`);
+    });
+})().catch(err => {
+    console.error('[SafeSpot] 启动失败', err);
+    process.exit(1);
 });

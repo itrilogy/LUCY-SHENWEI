@@ -136,3 +136,74 @@
   * **测边栏阅读**：渲染出对应的结构层级文本。
 * **合规性验证 (Checklist)**：
   * **响应及体验改善 (Pass)**：调整了保存机制逻辑，发布与入库动作响应加快，且图谱检索基本保持平滑运行。
+
+---
+
+## [2026-07-16] 升级改造计划落盘（Upgrade Plan Baseline）
+
+* **完成事项**：
+  * 完成全库研读与基线盘点（功能实现、作者意图、文档与代码落差）。
+  * 新增升级改造进度真源文档：[`docs/UPGRADE_PLAN.md`](./UPGRADE_PLAN.md)。
+  * 建立 Phase 0–3 任务表、缺陷台账（G-01~G-15）、验收矩阵、进度仪表盘与回写纪律。
+* **进度判断约定**：
+  * **后续所有改造实现与完成度判断，以 `docs/UPGRADE_PLAN.md` 状态列为准**。
+  * 历史 Sprint 1–15 记录仍保留在本日志与 `ROADMAP_AND_CHECKLIST.md`，不再作为新工作任务板。
+* **当前状态快照**：
+  * Phase 0：✅ 完成
+  * Phase 1（可交付闭环修复）：⬜ 未开始（含 userName、settings 回传、入口分离、一键启动等 P0 项）
+  * 开放 P0 缺陷：G-01, G-02, G-03, G-08, G-14
+* **下一步**：确认产品决策 D-01/D-02 → 开工 P1-A01 / P1-A03 / P1-B01。
+
+
+---
+
+## [2026-07-16] Phase 1 复盘小结：可交付闭环修复
+
+* **完成事项**：
+  * **P1-A**：修复 userName；records 增加 department/employee_id/duration；exam settings 回传；圆形椭圆 Hit-Test；删卷保留成绩；标注/组卷防双提交。
+  * **P1-B**：`#/play` / `#/admin` 入口分离；`POST /api/admin/login` + sessionStorage PIN（默认 `safeeye`）；管理导航重组；品牌统一 SafeSpot。
+  * **P1-C**：根目录 `npm run dev`（concurrently）；`GET /api/health`；README 更新。P1-C03 单端口托管 dist 延期。
+  * **P1-D**：三步开考、结果页等第、交卷即时刷榜。
+* **关键文件**：
+  * `server/src/app.js`, `server/src/db.js`
+  * `client/src/App.jsx`, `InteractionJudge.jsx`, `ScoreKeeper.jsx`
+  * `client/src/lib/{hitTest,grade,adminAuth}.js`
+  * 根 `package.json`, `README.md`, `docs/UPGRADE_PLAN.md`
+* **依赖**：`better-sqlite3` 升至 `^12.11.1`（适配 Node 26 原生绑定）。
+* **决策**：D-01 默认 PIN=`safeeye`；D-02 删卷保留 records。
+* **关闭缺陷**：G-01, G-02, G-03, G-04, G-08, G-09, G-10, G-14。
+* **合规性**：Local-First / 相对坐标红线未破坏。
+* **下一步**：Phase 2（练习/考核模式、session_log、报表 CSV）。
+
+
+---
+
+## [2026-07-16] Phase 2 + 用户体系落地 复盘
+
+* **删卷保成绩**：
+  * `DELETE /api/exams/:id` 仅删 `exams` + `exam_items`，**绝不删 records**。
+  * 删前补齐 `records.exam_name` 快照；报表 `examDeleted` 标记；龙虎榜仍可按 `exam_id` 查询。
+* **用户落地顺序完成**：
+  1. 组织/部门树/用户/档案表 + 默认 admin/admin123
+  2. 管理端「人员组织」CRUD、名册 API
+  3. 开考名册下拉 + `user_id` 写入成绩；`POST /api/auth/login`
+* **Phase 2 核心**：
+  * 练习/考核模式、整卷限时、session_log、结果错题本
+  * 成绩报表 + CSV 导出 + 薄弱点 Top + 卷宗列表（含已删卷）
+  * 多图上传、标注脏检查、组卷 timeLimitSec
+* **未做/延期**：画布缩放平移、撤销栈、zip 题库包、知识 Excel 导入（记入计划延期）
+* **版本**：API `1.2.0-phase2`
+
+
+---
+
+## [2026-07-16] 学情分析模型落地 (v1.3.0-analytics)
+
+* **成绩数据**：清空 records / attempt_stats / knowledge_error_facts，便于纯净测试。
+* **session_log v2**：hit / miss(kind=invalid_click) / unfound 分离。
+* **物化表**：attempt_stats（PRI、无效点击等）、knowledge_error_facts（仅 hit/unfound）。
+* **API**：`/api/admin/analytics/{summary,knowledge,org,proficiency,insights,overview}`
+* **薄弱点**：仅 unfound，消灭 unknown。
+* **前端**：管理端「学情分析」页；结果页展示 PRI；成绩报表侧栏文案修正。
+* **保留**：案例库、组织用户、试卷结构、知识库。
+

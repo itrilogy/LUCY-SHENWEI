@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: true,
     port: 5173,
     proxy: {
       // 本地脱机通信大动脉：拦截 /api 及 /assets 路由直通 Backend Express

@@ -121,6 +121,156 @@ async function initDB() {
     try {
         db.exec("ALTER TABLE knowledge_items ADD COLUMN consequence_level TEXT");
     } catch (e) { }
+    // Phase 1: 成绩身份字段
+    try {
+        db.exec("ALTER TABLE records ADD COLUMN department TEXT");
+    } catch (e) { }
+    try {
+        db.exec("ALTER TABLE records ADD COLUMN employee_id TEXT");
+    } catch (e) { }
+
+    // Phase 2 + 用户体系
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS organizations (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            code TEXT,
+            created_at INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS departments (
+            id TEXT PRIMARY KEY,
+            org_id TEXT NOT NULL,
+            parent_id TEXT,
+            name TEXT NOT NULL,
+            sort_order INTEGER DEFAULT 0,
+            FOREIGN KEY(org_id) REFERENCES organizations(id) ON DELETE CASCADE,
+            FOREIGN KEY(parent_id) REFERENCES departments(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            org_id TEXT NOT NULL,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'trainee',
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at INTEGER,
+            FOREIGN KEY(org_id) REFERENCES organizations(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS user_profiles (
+            user_id TEXT PRIMARY KEY,
+            real_name TEXT NOT NULL,
+            employee_no TEXT,
+            mobile TEXT,
+            email TEXT,
+            department_id TEXT,
+            job_title TEXT,
+            extra_json TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY(department_id) REFERENCES departments(id) ON DELETE SET NULL
+        );
+    `);
+
+    const recordCols = [
+        ['user_id', 'TEXT'],
+        ['exam_name', 'TEXT'],
+        ['mode', "TEXT DEFAULT 'exam'"],
+        ['paper_total', 'INTEGER'],
+        ['department_id', 'TEXT']
+    ];
+    for (const [col, typ] of recordCols) {
+        try { db.exec(`ALTER TABLE records ADD COLUMN ${col} ${typ}`); } catch (e) { }
+    }
+    try { db.exec('ALTER TABLE assets ADD COLUMN original_name TEXT'); } catch (e) { }
+
+    // 学情分析物化表
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS attempt_stats (
+            record_id INTEGER PRIMARY KEY,
+            user_id TEXT,
+            department_id TEXT,
+            exam_id TEXT,
+            exam_name TEXT,
+            user_name TEXT,
+            mode TEXT,
+            score REAL,
+            paper_total REAL,
+            score_rate REAL,
+            duration_ms INTEGER,
+            hazards_total INTEGER,
+            hazards_hit INTEGER,
+            hazards_unfound INTEGER,
+            invalid_clicks INTEGER,
+            pri REAL,
+            r_miss REAL,
+            waste_ratio REAL,
+            completed_at INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS knowledge_error_facts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            record_id INTEGER,
+            user_id TEXT,
+            department_id TEXT,
+            exam_id TEXT,
+            clause_id TEXT,
+            category_id TEXT,
+            scene_id TEXT,
+            outcome TEXT,
+            label TEXT,
+            weight REAL,
+            completed_at INTEGER
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_attempt_stats_exam ON attempt_stats(exam_id);
+        CREATE INDEX IF NOT EXISTS idx_attempt_stats_user ON attempt_stats(user_id);
+        CREATE INDEX IF NOT EXISTS idx_attempt_stats_dept ON attempt_stats(department_id);
+        CREATE INDEX IF NOT EXISTS idx_attempt_stats_time ON attempt_stats(completed_at);
+        CREATE INDEX IF NOT EXISTS idx_kef_clause ON knowledge_error_facts(clause_id);
+        CREATE INDEX IF NOT EXISTS idx_kef_record ON knowledge_error_facts(record_id);
+    `);
+
+    // 默认组织与管理员种子
+    try {
+        const orgCount = db.prepare('SELECT count(*) as c FROM organizations').get().c;
+        if (orgCount === 0) {
+            const orgId = 'org_default';
+            const now = Date.now();
+            db.prepare('INSERT INTO organizations (id, name, code, created_at) VALUES (?, ?, ?, ?)')
+                .run(orgId, '默认企业', 'DEFAULT', now);
+            const deptRoot = 'dept_root';
+            db.prepare('INSERT INTO departments (id, org_id, parent_id, name, sort_order) VALUES (?, ?, ?, ?, ?)')
+                .run(deptRoot, orgId, null, '总部', 0);
+            db.prepare('INSERT INTO departments (id, org_id, parent_id, name, sort_order) VALUES (?, ?, ?, ?, ?)')
+                .run('dept_safe', orgId, deptRoot, '安环部', 1);
+            db.prepare('INSERT INTO departments (id, org_id, parent_id, name, sort_order) VALUES (?, ?, ?, ?, ?)')
+                .run('dept_prod', orgId, deptRoot, '生产部', 2);
+
+            // 默认管理员 admin / admin123（本地演示；生产请改密）
+            const crypto = require('crypto');
+            const salt = crypto.randomBytes(16).toString('hex');
+            const hash = crypto.scryptSync('admin123', salt, 64).toString('hex');
+            const password_hash = `${salt}:${hash}`;
+            const adminId = 'user_admin';
+            db.prepare('INSERT INTO users (id, org_id, username, password_hash, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                .run(adminId, orgId, 'admin', password_hash, 'admin', 'active', now);
+            db.prepare('INSERT INTO user_profiles (user_id, real_name, employee_no, department_id, job_title) VALUES (?, ?, ?, ?, ?)')
+                .run(adminId, '系统管理员', 'A001', deptRoot, '管理员');
+            console.log('[SafeSpot-DB] 已初始化默认组织/部门/管理员 (admin / admin123)');
+        }
+    } catch (e) {
+        console.error('初始化组织用户失败', e);
+    }
+
+    // 回填 records.exam_name（卷名快照，删卷后仍可展示）
+    try {
+        db.prepare(`
+            UPDATE records SET exam_name = exam_id
+            WHERE exam_name IS NULL OR exam_name = ''
+        `).run();
+    } catch (e) { }
 
     // 初始化存量数据的风险等级 (仅针对未设置的记录)
     try {

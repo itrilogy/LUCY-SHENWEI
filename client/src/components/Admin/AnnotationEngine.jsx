@@ -30,23 +30,27 @@ export default function AnnotationEngine() {
     // UI 提示与反馈状态 (取代会闪烁的原生 alert/confirm)
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const [confirmBox, setConfirmBox] = useState({ show: false, title: '', message: '', onConfirm: null });
+    const [saving, setSaving] = useState(false);
 
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
         setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
     };
 
-    const handleUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    const [isDirty, setIsDirty] = useState(false);
 
-        if (!file.type.startsWith('image/')) {
-            alert('只能上传图片文件！');
+    const handleUpload = async (e) => {
+        const list = e.target.files ? Array.from(e.target.files) : [];
+        if (!list.length) return;
+
+        const imagesOnly = list.filter(f => f.type.startsWith('image/'));
+        if (!imagesOnly.length) {
+            showToast('只能上传图片文件', 'error');
             return;
         }
 
         const formData = new FormData();
-        formData.append('image', file);
+        imagesOnly.forEach(f => formData.append('images', f));
 
         try {
             const res = await fetch('/api/assets/upload', {
@@ -55,10 +59,12 @@ export default function AnnotationEngine() {
             });
 
             if (res.ok) {
+                const data = await res.json();
+                showToast(`成功上传 ${data.count || imagesOnly.length} 张图片`);
                 await fetchImages();
             } else {
                 const err = await res.json();
-                alert(`上传失败: ${err.error || '未知错误'}`);
+                showToast(`上传失败: ${err.error || '未知错误'}`, 'error');
             }
         } catch (error) {
             console.error('文件上传异常:', error);
@@ -69,6 +75,16 @@ export default function AnnotationEngine() {
             }
         }
     };
+
+    useEffect(() => {
+        const onBeforeUnload = (ev) => {
+            if (!isDirty) return;
+            ev.preventDefault();
+            ev.returnValue = '';
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [isDirty]);
 
     // 模态框状态
     const [showModal, setShowModal] = useState(false);
@@ -124,12 +140,17 @@ export default function AnnotationEngine() {
         const res = await fetch(`/api/assets/meta/${imgId}`);
         const data = await res.json();
         setAnnotations(data.meta.items || []);
+        setIsDirty(false);
         if (data.meta.sceneId) setSelectedGlobalScene(data.meta.sceneId);
     };
 
     const selectImage = (img) => {
+        if (isDirty && activeImage && activeImage.name !== img.name) {
+            if (!window.confirm('当前标注尚未保存，切换图片将丢失未保存修改。继续？')) return;
+        }
         setActiveImage(img);
         loadMeta(img.name);
+        setIsDirty(false);
     };
 
     const getRatioPos = (e) => {
@@ -252,11 +273,13 @@ export default function AnnotationEngine() {
         if (resizingId) {
             setResizingId(null);
             setResizeStart(null);
+            setIsDirty(true);
             return; // 完成调整大小，不触发画框结算
         }
         if (movingId) {
             setMovingId(null);
             setMoveStart(null);
+            setIsDirty(true);
             return; // 结束移动
         }
 
@@ -278,29 +301,38 @@ export default function AnnotationEngine() {
             setMType('');
             setMItem(''); // 等待用户选择最终节点
             setShowModal(true);
+            setIsDirty(true);
         }
         setCurrentRect(null);
     };
 
     const saveMeta = async () => {
-        if (!activeImage) return;
+        if (!activeImage || saving) return;
 
         const payload = {
             sceneId: selectedGlobalScene,
             items: annotations
         };
 
-        const res = await fetch(`/api/assets/meta/${activeImage.name}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        setSaving(true);
+        try {
+            const res = await fetch(`/api/assets/meta/${activeImage.name}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
 
-        if (res.ok) {
-            showToast('保存标注成功');
-            fetchImages();
-        } else {
-            showToast('保存失败', 'error');
+            if (res.ok) {
+                showToast('保存标注成功');
+                setIsDirty(false);
+                fetchImages();
+            } else {
+                showToast('保存失败', 'error');
+            }
+        } catch (e) {
+            showToast('网络错误，保存失败', 'error');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -435,10 +467,12 @@ export default function AnnotationEngine() {
                         onChange={handleUpload}
                         className="hidden"
                         accept="image/png, image/jpeg, image/webp"
+                        multiple
                     />
                     <button
                         onClick={() => fileInputRef.current?.click()}
                         className="px-3 py-1 bg-blue-100 text-blue-600 text-sm font-semibold rounded hover:bg-blue-200 transition"
+                        title="支持多选图片"
                     >
                         上传
                     </button>
@@ -484,7 +518,9 @@ export default function AnnotationEngine() {
                             className={`p-3 rounded border cursor-pointer transition ${activeImage?.name === img.name ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500 shadow-sm' : 'border-gray-200 hover:border-blue-300 bg-white'}`}
                         >
                             <div className="flex flex-col space-y-1">
-                                <span className="font-semibold text-sm truncate text-gray-800" title={img.name}>{img.name}</span>
+                                <span className="font-semibold text-sm truncate text-gray-800" title={img.originalName || img.baseName || img.name}>
+                                    {img.baseName || img.originalName || img.name}
+                                </span>
                                 <div>
                                     {img.isAnnotated ?
                                         <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded">✔ 已记录指纹</span> :
@@ -532,10 +568,11 @@ export default function AnnotationEngine() {
                             </button>
                             <button
                                 onClick={saveMeta}
-                                className="bg-indigo-600 text-white px-5 py-2 rounded shadow hover:bg-indigo-700 flex items-center text-sm font-semibold transition"
+                                disabled={saving}
+                                className="bg-indigo-600 disabled:bg-indigo-400 disabled:cursor-wait text-white px-5 py-2 rounded shadow hover:bg-indigo-700 flex items-center text-sm font-semibold transition"
                             >
                                 <Save className="w-4 h-4 mr-2" />
-                                保存标注
+                                {saving ? '保存中…' : '保存标注'}
                             </button>
                         </div>
                     )}
@@ -603,6 +640,7 @@ export default function AnnotationEngine() {
                                             onMouseDown={(e) => {
                                                 e.stopPropagation();
                                                 setAnnotations(prev => prev.filter(a => a.id !== anno.id));
+                                                setIsDirty(true);
                                             }}
                                         >
                                             <X className="w-5 h-5" />
@@ -765,6 +803,7 @@ export default function AnnotationEngine() {
                                         showToast("缔结指纹失败：必须要指定具体的隐患类型并关联法条！", "error"); return;
                                     }
                                     setAnnotations([...annotations, pendingAnnotation]);
+                                    setIsDirty(true);
                                     setShowModal(false);
                                     setPendingAnnotation(null);
                                 }}

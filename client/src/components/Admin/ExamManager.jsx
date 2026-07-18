@@ -24,16 +24,25 @@ export default function ExamManager({ onEnterExam }) {
         fetchExams();
     }, []);
 
-    // 简单实现删除功能或者只作为查看
+    // D-02: 删除试卷绝不删除 records；成绩仍可在报表/龙虎榜按 exam_id 查询
     const handleDelete = async (examName) => {
-        if (!window.confirm(`确认删除试卷【${examName}】吗？`)) return;
+        if (!window.confirm(
+            `确认删除试卷【${examName}】吗？\n\n` +
+            `• 试卷与题目关联将被移除\n` +
+            `• 龙虎榜/历史成绩完整保留（后端 records 不删）\n` +
+            `• 可在「成绩报表」中查看该卷成绩（标记为卷已删）`
+        )) return;
         try {
-            const res = await fetch(`/api/exams/${examName}`, { method: 'DELETE' });
+            const res = await fetch(`/api/exams/${encodeURIComponent(examName)}`, { method: 'DELETE' });
             if (res.ok) {
-                fetchExams(); // 重新拉取
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || '试卷已删除，历史成绩已保留');
+                fetchExams();
             }
-        } catch (e) { }
-    }
+        } catch (e) {
+            console.error('删除试卷失败', e);
+        }
+    };
 
     const toggleStatus = async (examName, currentStatus) => {
         const newStatus = currentStatus === 'published' ? 'draft' : 'published';

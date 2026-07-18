@@ -16,6 +16,13 @@ export default function TestAssembler() {
     // Scoring Options
     const [totalScore, setTotalScore] = useState(100);
     const [scoringRule, setScoringRule] = useState('weighted'); // 'weighted' | 'average'
+    const [timeLimitSec, setTimeLimitSec] = useState(0);
+    const [publishing, setPublishing] = useState(false);
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+    };
 
     const containerRef = useRef(null);
     const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
@@ -60,7 +67,15 @@ export default function TestAssembler() {
     const fetchImages = async () => {
         const res = await fetch('/api/assets');
         const data = await res.json();
-        setImages((data.data || []).filter(img => img.isAnnotated));
+        const list = data.data || [];
+        // 以实际标注条数为准（兼容 is_annotated 脏标记）
+        const annotated = list.filter(img =>
+            img.isAnnotated || (img.meta?.items && img.meta.items.length > 0)
+        );
+        setImages(annotated);
+        if (list.length > 0 && annotated.length === 0) {
+            console.warn('[组卷] 有图库素材但无有效标注。请先在「图库标注」中框选并保存隐患点。');
+        }
     };
 
     const fetchKnowledge = async () => {
@@ -80,9 +95,11 @@ export default function TestAssembler() {
     };
 
     const handleSaveOrPublish = async (status) => {
-        if (!paperName.trim()) { alert('请输入考卷明码名称！'); return; }
-        if (selectedImages.length === 0) return;
+        if (!paperName.trim()) { showToast('请输入考卷名称', 'error'); return; }
+        if (selectedImages.length === 0) { showToast('请至少选择一题', 'error'); return; }
+        if (publishing) return;
 
+        setPublishing(true);
         try {
             const payload = {
                 examName: paperName.trim(),
@@ -91,7 +108,8 @@ export default function TestAssembler() {
                 slides: selectedImages.map(img => img.name),
                 status: status,
                 total_score: totalScore,
-                scoring_rule: scoringRule
+                scoring_rule: scoringRule,
+                time_limit_sec: Number(timeLimitSec) || 0
             };
             const res = await fetch('/api/exams/publish', {
                 method: 'POST',
@@ -101,11 +119,17 @@ export default function TestAssembler() {
 
             if (res.ok) {
                 const actionText = status === 'published' ? '发布' : '保存';
-                alert(`试卷【${paperName}】${actionText}成功！`);
+                showToast(`试卷【${paperName}】${actionText}成功`);
                 setSelectedImages([]);
                 setActivePreview(null);
-            } else alert('试卷状态更新受阻');
-        } catch (err) { alert('网络传输错误'); }
+            } else {
+                showToast('试卷状态更新失败', 'error');
+            }
+        } catch (err) {
+            showToast('网络传输错误', 'error');
+        } finally {
+            setPublishing(false);
+        }
     };
 
     // Dictionary for deep mapping
@@ -128,7 +152,7 @@ export default function TestAssembler() {
 
     const filteredImages = images.filter(img => {
         // 构建全维度检索引擎文本池
-        let totalText = img.name.toLowerCase();
+        let totalText = `${img.name} ${img.baseName || ''} ${img.originalName || ''}`.toLowerCase();
         if (img.meta?.items?.length > 0) {
             const annoTexts = img.meta.items.map(anno => {
                 const data = clauseMap[anno.clauseId];
@@ -230,6 +254,16 @@ export default function TestAssembler() {
                     </div>
 
                     <div className="p-4 flex-1 overflow-y-auto config-scrollbar">
+                        {images.length === 0 && (
+                            <div className="text-center py-16 px-6 text-sm text-gray-500 bg-amber-50 border border-amber-100 rounded-xl">
+                                <p className="font-bold text-amber-800 mb-2">暂无可组卷案例</p>
+                                <p className="leading-relaxed text-amber-900/80">
+                                    请先到「图库标注」：上传现场图 → 框选隐患点并绑定条款 → 点击<strong>保存标注</strong>。
+                                    保存成功后，此处会自动出现可勾选的案例。
+                                </p>
+                                <p className="text-xs text-amber-700/70 mt-3">若图库有图但此处为空，通常是标注未保存或标注数据已丢失，需重新标注。</p>
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                             {filteredImages.map(img => {
                                 const isSelected = !!selectedImages.find(s => s.name === img.name);
@@ -247,7 +281,9 @@ export default function TestAssembler() {
                                             </div>
                                         </div>
                                         <img src={img.url} alt="img" className="h-[4.5rem] w-auto object-contain mb-1 rounded opacity-90 shadow-sm border border-gray-200 bg-white" draggable={false} />
-                                        <span className="text-[10px] truncate w-full text-center text-gray-600 font-medium px-1" title={img.name}>{img.name}</span>
+                                        <span className="text-[10px] truncate w-full text-center text-gray-600 font-medium px-1" title={img.originalName || img.baseName || img.name}>
+                                            {img.baseName || img.originalName || img.name}
+                                        </span>
                                     </div>
                                 )
                             })}
@@ -301,6 +337,17 @@ export default function TestAssembler() {
                                         <option value="average">均分赋分 (题内按点平摊)</option>
                                     </select>
                                 </div>
+                                <div className="col-span-2">
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">整卷限时 (秒，0=不限)</label>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-bold focus:ring-1 focus:ring-indigo-500 outline-none"
+                                        value={timeLimitSec}
+                                        onChange={e => setTimeLimitSec(parseInt(e.target.value) || 0)}
+                                        placeholder="0"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -325,7 +372,9 @@ export default function TestAssembler() {
                                         >
                                             <div className="flex items-center flex-1 min-w-0">
                                                 <span className="w-5 h-5 rounded bg-indigo-100 text-indigo-700 flex justify-center items-center text-[10px] font-bold mr-2 flex-shrink-0">{i + 1}</span>
-                                                <span className="truncate flex-1 text-gray-700 font-medium text-xs">{img.name}</span>
+                                                <span className="truncate flex-1 text-gray-700 font-medium text-xs" title={img.originalName || img.name}>
+                                                    {img.baseName || img.originalName || img.name}
+                                                </span>
                                             </div>
                                             <div className="flex items-center space-x-3 ml-2 flex-shrink-0">
                                                 <span className="text-[10px] font-mono font-medium text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded-md flex items-center">
@@ -388,22 +437,27 @@ export default function TestAssembler() {
 
                     <div className="p-4 bg-white border-t border-gray-200 mt-auto flex-shrink-0 flex items-center space-x-3">
                         <button
-                            disabled={selectedImages.length === 0}
+                            disabled={selectedImages.length === 0 || publishing}
                             onClick={() => handleSaveOrPublish('draft')}
                             className="flex-1 bg-white disabled:bg-gray-100 disabled:text-gray-400 text-indigo-600 font-bold py-3 text-sm rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 flex items-center justify-center transition-all disabled:cursor-not-allowed border border-indigo-200 disabled:border-gray-200"
                         >
-                            保存试卷 ({selectedImages.length})
+                            {publishing ? '处理中…' : `保存草稿 (${selectedImages.length})`}
                         </button>
                         <button
-                            disabled={selectedImages.length === 0}
+                            disabled={selectedImages.length === 0 || publishing}
                             onClick={() => handleSaveOrPublish('published')}
                             className="flex-1 bg-indigo-600 disabled:bg-gray-300 disabled:text-gray-500 text-white font-bold py-3 text-sm rounded-xl shadow-md hover:shadow-lg hover:bg-indigo-700 flex items-center justify-center transition-all disabled:cursor-not-allowed border border-transparent disabled:border-gray-200"
                         >
-                            <FilePlus2 className="w-5 h-5 mr-2" /> 发布试卷
+                            <FilePlus2 className="w-5 h-5 mr-2" /> {publishing ? '处理中…' : '发布试卷'}
                         </button>
                     </div>
                 </div>
             </div>
+            {toast.show && (
+                <div className={`fixed bottom-8 right-8 z-[100] px-5 py-3 rounded-xl shadow-xl text-sm font-bold text-white ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+                    {toast.message}
+                </div>
+            )}
         </div>
     );
 }
