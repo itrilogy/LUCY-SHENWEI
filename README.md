@@ -1,19 +1,62 @@
-# SafeSpot 安全隐患识别培训系统
+<p align="center">
+  <img src="client/public/safespot.svg" width="96" height="96" alt="SafeSpot">
+</p>
 
-| 项 | 值 |
-|----|----|
-| 产品名 | **SafeSpot** |
-| 工程名 | SafeEYE |
-| 版本 | **V1.4**（发行号 `1.4.0-web`） |
-| 形态 | 本地优先 **Web 应用**（浏览器 + 本机/内网 Node） |
-| 出品 | 鹿溪联合创新实验室（LUXI Joint Innovation Lab） |
+<h1 align="center">SafeSpot</h1>
+
+<p align="center">
+  <strong>安全隐患识别培训系统</strong><br/>
+  工程名 SafeEYE · 本地优先 Web · V1.4
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.4.0--web-2F7A73?style=flat-square" alt="version" />
+  <img src="https://img.shields.io/badge/Web-local--first-1A2428?style=flat-square" alt="web" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white" alt="react" />
+  <img src="https://img.shields.io/badge/Express-5-000000?style=flat-square" alt="express" />
+  <img src="https://img.shields.io/badge/SQLite-embedded-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="sqlite" />
+</p>
+
+<p align="center">
+  <img src="client/public/safespot.svg" width="64" height="64" alt="SafeSpot 产品标" />
+  &nbsp;&nbsp;<strong>×</strong>&nbsp;&nbsp;
+  <img src="client/public/brand/luxi-lab-main.svg" width="64" height="64" alt="鹿溪联合创新实验室" />
+</p>
+
+<p align="center">
+  出品 <strong>鹿溪联合创新实验室</strong>（LUXI Joint Innovation Lab）
+</p>
+
+<p align="center">
+  <a href="#1-快速开始">快速开始</a> ·
+  <a href="#产品标识">产品标识</a> ·
+  <a href="#3-学员端">学员端</a> ·
+  <a href="#4-管理端">管理端</a> ·
+  <a href="#7-文档">文档</a>
+</p>
 
 用现场照片做「找隐患」考核：安环员在浏览器里标注并组卷，员工点击作答，成绩与学情留在本厂服务器。
 
 数据在本机 **SQLite + 本地图片**，默认不上云。  
 **不是安装包，也不是独立手机 App**——一台机器跑服务，Chrome / Edge 打开同一地址即可。窄屏为响应式，没有 `/m` 站点。
 
-点顶栏 Logo 可打开应用声明；出品标识为产品标 × 实验室官方主 LOGO。
+点应用顶栏 Logo 可打开声明页。
+
+---
+
+## 产品标识
+
+<p align="center">
+  <img src="client/public/safespot-logo.svg" width="360" alt="SafeSpot 横版字锁">
+</p>
+
+| | 标识 | 路径 |
+|:---:|:---|:---|
+| **产品标** | <img src="client/public/safespot.svg" width="48" height="48" alt="SafeSpot"> | [`client/public/safespot.svg`](./client/public/safespot.svg)（favicon / 顶栏） |
+| **横版字锁** | <img src="client/public/safespot-logo.svg" width="220" alt="SafeSpot 字锁"> | [`client/public/safespot-logo.svg`](./client/public/safespot-logo.svg) |
+| **出品方** | <img src="client/public/brand/luxi-lab-main.svg" width="48" height="48" alt="LUXI LAB"> | [`client/public/brand/luxi-lab-main.svg`](./client/public/brand/luxi-lab-main.svg)（官方 `LUXI LAB.svg`） |
+
+产品标语义：光学分划 / 观测场 + 琥珀色隐患点。实验室主标只认官方鹿标，不用几何实验稿。说明见 [`client/public/brand/README.md`](./client/public/brand/README.md)。
 
 ---
 
