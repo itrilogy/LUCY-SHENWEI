@@ -1,16 +1,25 @@
-# SafeSpot（工程名 SafeEYE）
+# SafeSpot 安全隐患识别培训系统
 
-基于「找隐患」的交互式安全应知应会 **Web 应用**。  
-安环员在浏览器里标注现场图、组卷；员工用浏览器考试；成绩与学情留在本厂服务器。
+| 项 | 值 |
+|----|----|
+| 产品名 | **SafeSpot** |
+| 工程名 | SafeEYE |
+| 版本 | **V1.4**（发行号 `1.4.0-web`） |
+| 形态 | 本地优先 **Web 应用**（浏览器 + 本机/内网 Node） |
+| 出品 | 鹿溪联合创新实验室（LUXI Joint Innovation Lab） |
+
+用现场照片做「找隐患」考核：安环员在浏览器里标注并组卷，员工点击作答，成绩与学情留在本厂服务器。
 
 数据在本机 **SQLite + 本地图片**，默认不上云。  
-**不是安装包，也不是桌面客户端**——一台机器跑服务，多人打开网页即可。
+**不是安装包，也不是独立手机 App**——一台机器跑服务，Chrome / Edge 打开同一地址即可。窄屏为响应式，没有 `/m` 站点。
+
+点顶栏 Logo 可打开应用声明；出品标识为产品标 × 实验室官方主 LOGO。
 
 ---
 
-## 1. 快速开始（开发）
+## 1. 快速开始
 
-需要 Node.js 18+（推荐 20）。
+需要 Node.js **20 LTS**（推荐）。更高主版本可能导致 `better-sqlite3` 编不过。
 
 ```bash
 npm run install:all
@@ -23,21 +32,26 @@ npm run dev
 |------|------|------|
 | 学员端 | http://127.0.0.1:5173/#/play | 选卷、考试、龙虎榜 |
 | 管理端 | http://127.0.0.1:5173/#/admin | 管理员 / 培训师账号 |
+| 培训机 | http://127.0.0.1:5173/#/play?kiosk=1 | 隐藏管理入口 |
 
 ```bash
 curl http://127.0.0.1:3000/api/health
 ```
 
+空库首次启动会预置开箱示范卷（12 张场景图；热区为示意框，正式培训请按现场图重标）。
+
 ### 生产（一个端口）
 
 ```bash
 # 先改掉默认密码与 SESSION_SECRET，见 .env.example
-npm start
+NODE_ENV=production npm start
 ```
 
 浏览器打开 **http://127.0.0.1:3000**（页面和接口同一端口）。内网多人访问时设 `HOST=0.0.0.0`。
 
-培训机可开 `#/play?kiosk=1` 隐藏管理入口。Docker：`docker compose up -d --build`。详见 [docs/DEPLOY.md](./docs/DEPLOY.md)。
+生产若仍是默认口令 / `admin123`，进程会拒绝启动。
+
+Docker：`docker compose up -d --build`。备份：`npm run backup`。详见 [docs/DEPLOY.md](./docs/DEPLOY.md)。
 
 ### 开发凭据（勿用于现场）
 
@@ -56,7 +70,7 @@ npm start
 管理端：成绩报表 / 学情分析 / 导出 CSV
 ```
 
-组卷中心只列出 **已保存标注** 的图片。
+组卷中心只列出 **已保存标注** 的图片。正式考核分数由 **服务端** 按点击坐标与卷面快照计算，浏览器上报的数字不入库。
 
 ---
 
@@ -64,12 +78,13 @@ npm start
 
 `#/play`
 
-- 可选登录（人员组织里的账号），或访客手填姓名
-- **正式考核**进正式榜与学情；**练习**默认不进正式榜
-- 点中热区得分；空白点击计误点，单题默认容错 3 次后揭晓
+- 可选登录（人员组织中的账号），或访客手填姓名；访客不能绑定他人工号
+- **正式考核**进正式榜与学情；**练习**默认不进
+- 点中热区得分；空白点击计误点，单题默认容错 3 次
+- 限时到点后服务端拒点并自动交卷
 - 计分：权重倒挤或均分；等第 优/良/中/差；另有 PRI 识别熟练度
-
-正式考核的点击由 **服务端判定并计分**；浏览器上报的分数不会入库。
+- 结果页可打印合格证（浏览器打印 / PDF；不是法定资质）
+- 宽屏右侧龙虎榜；平板点右下角奖杯打开抽屉
 
 ---
 
@@ -79,46 +94,47 @@ npm start
 
 | 菜单 | 功能 |
 |------|------|
-| 图库标注 | 多图上传、框选、绑定条款、保存 |
-| 组卷中心 | 选题、总分/规则/限时、草稿或发布 |
+| 图库标注 | 多图上传、矩形/椭圆、绑定条款、保存 |
+| 组卷中心 | 选题、总分/规则/限时、草稿或发布、部门布置 |
 | 知识与风险 | 场景→大类→细则；5×5 风险字典 |
-| 人员组织 | 多级部门、账号启停 |
-| 成绩报表 | 流水、CSV、薄弱点（仅遗漏） |
+| 人员组织 | 多级部门、账号启停、CSV 导入 |
+| 成绩报表 | 流水、未考/未过、CSV、薄弱点（仅遗漏） |
 | 学情分析 | 试卷/部门切片、PRI、规则结论 |
-| 数据巡检 | 表预览、历史 JSON 清理 |
+| 数据巡检 | 表预览、重复图与失效学情清理 |
+| 操作审计 | 管理端关键写操作记录 |
 
-删卷 **不删** 历史成绩。
-
----
-
-## 5. 案例图（可选）
-
-`server/data/assets/case-bank-generated/` 提供按 5 大场景生成的示例图。  
-需在图库中上传、按 `MANIFEST.json` 标注并组卷后才能考。
+删卷 **不删** 历史成绩。`admin` 全权限；`trainer` 内容与报表；学员调不了管理接口。
 
 ---
 
-## 6. 目录
+## 5. 目录
 
 ```text
 SafeEYE/
-├── README.md                 本文件
-├── docs/                     现行文档（从 docs/README.md 进入）
+├── README.md                 本文件（对外说明）
+├── COPYRIGHT.md / NOTICE.md  版权摘要与第三方组件
+├── Dockerfile · docker-compose.yml
+├── docs/
+│   ├── README.md             文档地图
+│   ├── 软著/                 登记用产品/功能/使用说明
 │   └── archive/              历史文档，非真源
-├── client/                   Vite + React 前端
+├── client/                   React 19 + Vite + Tailwind
+│   └── public/brand/         实验室主 LOGO（官方 LUXI LAB）
 └── server/                   Express + SQLite
     └── data/                 safeeye.db + assets/raw
 ```
 
 ---
 
-## 7. 技术要点
+## 6. 技术要点
 
 | 项 | 说明 |
 |----|------|
 | 前端 | React 19 · Vite · Tailwind 3 |
-| 后端 | Express · better-sqlite3 · multer |
-| 坐标 | 0~1 相对比例 |
+| 后端 | Express 5 · better-sqlite3 · multer |
+| 会话 | httpOnly；表 `auth_sessions` |
+| 坐标 | 热区 0～1 相对比例 |
+| 计分 | `examEngine` + `hitTest` + 卷面 `item_meta` 快照 |
 | 学情 | `session_log` v2 → `attempt_stats` / `knowledge_error_facts` |
 
 | 变量 | 默认 | 含义 |
@@ -130,34 +146,37 @@ SafeEYE/
 
 ---
 
-## 8. 文档
+## 7. 文档
 
 | 文档 | 内容 |
 |------|------|
 | [docs/README.md](./docs/README.md) | **文档地图** |
 | [docs/PRODUCT.md](./docs/PRODUCT.md) | 产品定位（Web，非安装包） |
-| [docs/PLAN.md](./docs/PLAN.md) | **规划与进度真源** |
-| [docs/PROCESS.md](./docs/PROCESS.md) | **改造过程流水**（每次改动必记） |
+| [docs/USER_GUIDE.md](./docs/USER_GUIDE.md) | 日常操作手册 |
+| [docs/DEPLOY.md](./docs/DEPLOY.md) | 开发 / 生产 / Docker / 备份 |
+| [docs/软著/00_文档索引.md](./docs/软著/00_文档索引.md) | 软著：产品说明、功能说明、使用说明 |
+| [docs/PLAN.md](./docs/PLAN.md) | 规划与进度真源 |
+| [docs/PROCESS.md](./docs/PROCESS.md) | 改造过程流水 |
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | 架构 |
-| [docs/DEPLOY.md](./docs/DEPLOY.md) | 开发 / 生产 / 备份 |
-| [docs/USER_GUIDE.md](./docs/USER_GUIDE.md) | 操作手册 |
 | [docs/ANALYTICS.md](./docs/ANALYTICS.md) | 学情与 PRI |
-| [docs/软著/00_文档索引.md](./docs/软著/00_文档索引.md) | 软著：产品 / 功能 / 使用说明 |
 | [COPYRIGHT.md](./COPYRIGHT.md) | 版权声明摘要 |
+| [NOTICE.md](./NOTICE.md) | 第三方开源组件 |
 
 ---
 
-## 9. 常见问题
+## 8. 常见问题
 
 | 现象 | 处理 |
 |------|------|
 | 组卷中心无案例 | 先标注并点「保存标注」 |
 | 中文文件名乱码 | 重启后端后再传 |
 | 删卷后成绩还在吗 | 会保留 |
-| 薄弱点出现 unknown | 现行逻辑只统计遗漏；误点进 PRI |
-| better-sqlite3 编译失败 | 在 `server` 重装，对齐 Node 版本 |
+| 学情是空的 | 要有正式考核交卷；练习默认不进主统计 |
+| 薄弱点出现 unknown | 现行只统计遗漏；误点进 PRI |
+| 有独立手机版吗 | 没有；用手机浏览器打开同一地址 |
+| better-sqlite3 编译失败 | 换 Node 20，在 `server/` 重装 |
 | 3000 端口占用 | `PORT=3010` 启动后端 |
 
 ---
 
-*SafeSpot · Web · 鹿溪联合创新实验室*
+*SafeSpot V1.4 · Web · 鹿溪联合创新实验室*
