@@ -1,36 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Target, AlertTriangle, ShieldCheck, CheckCircle2, User, Building2, IdCard, ChevronRight, ChevronLeft, RotateCcw, Home } from 'lucide-react';
-import { hitTestAnnotation } from '../../lib/hitTest';
+import { AlertTriangle, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { getGrade } from '../../lib/grade';
-import { buildPointScoreMap, clampScore } from '../../lib/scoring';
-
-const MAX_MISS = 3;
-
-function parseExamSettings(examObj) {
-    const total =
-        examObj?.totalScore ??
-        examObj?.total_score ??
-        examObj?.settings?.totalScore ??
-        examObj?.settings?.total_score ??
-        100;
-    const rule =
-        examObj?.scoringRule ??
-        examObj?.scoring_rule ??
-        examObj?.settings?.scoringRule ??
-        examObj?.settings?.scoring_rule ??
-        'weighted';
-    const timeLimit =
-        examObj?.timeLimitSec ??
-        examObj?.time_limit_sec ??
-        examObj?.settings?.timeLimitSec ??
-        examObj?.settings?.time_limit_sec ??
-        0;
-    return {
-        total_score: Number(total) || 100,
-        scoring_rule: rule || 'weighted',
-        time_limit_sec: Number(timeLimit) || 0
-    };
-}
+import { api } from '../../lib/api';
+import { MAX_MISS, parseExamSettings } from '../../lib/examSettings';
+import ExamLobby from './ExamLobby';
+import ExamResult from './ExamResult';
+import ExamToast from './ExamToast';
 
 export default function InteractionJudge({
     onExamStart,
@@ -49,9 +24,7 @@ export default function InteractionJudge({
     const [userName, setUserName] = useState('');
     const [department, setDepartment] = useState('');
     const [employeeId, setEmployeeId] = useState('');
-    const [userId, setUserId] = useState(null);
-    const [departmentId, setDepartmentId] = useState(null);
-    const [roster, setRoster] = useState([]);
+    const [attemptId, setAttemptId] = useState(null);
     const [attemptMode, setAttemptMode] = useState('exam'); // exam | practice
     const [sessionLog, setSessionLog] = useState([]);
     const sessionLogRef = useRef([]);
@@ -63,6 +36,8 @@ export default function InteractionJudge({
     const [clausesDict, setClausesDict] = useState({});
 
     const [metaData, setMetaData] = useState(null);
+    const [hazardTotal, setHazardTotal] = useState(0);
+    const [showClauseDrawer, setShowClauseDrawer] = useState(false);
     const [foundItems, setFoundItems] = useState([]);
     const [missCount, setMissCount] = useState(0);
     const [showHints, setShowHints] = useState(false);
@@ -99,10 +74,8 @@ export default function InteractionJudge({
     // 登录用户自动填入身份
     useEffect(() => {
         if (!currentUser) return;
-        setUserId(currentUser.id || null);
         setUserName(currentUser.realName || currentUser.username || '');
         setDepartment(currentUser.departmentName || '');
-        setDepartmentId(currentUser.departmentId || null);
         setEmployeeId(currentUser.employeeNo || '');
     }, [currentUser]);
 
@@ -115,6 +88,7 @@ export default function InteractionJudge({
                 if (prev <= 1) {
                     clearInterval(t);
                     setShowHints(true);
+                    setTimeout(() => submitAttempt(), 50);
                     return 0;
                 }
                 return prev - 1;
@@ -161,21 +135,12 @@ export default function InteractionJudge({
             });
             setClausesDict(dict);
 
-            const [pRes, rosterRes] = await Promise.all([
-                fetch('/api/exams'),
-                fetch('/api/org/roster')
-            ]);
-            if (pRes.ok) {
-                const rawExams = await pRes.json();
-                const exams = rawExams.filter(e => e.status === 'published');
-                setAllExams(exams);
-                if (exams.length > 0 && !selectedExam) {
-                    setSelectedExam(exams[0]);
-                    if (onExamChange) onExamChange(exams[0].examName || exams[0].name);
-                }
-            }
-            if (rosterRes.ok) {
-                setRoster(await rosterRes.json());
+            const rawExams = await api.get('/api/exams');
+            const exams = (Array.isArray(rawExams) ? rawExams : []).filter(e => e.status === 'published');
+            setAllExams(exams);
+            if (exams.length > 0 && !selectedExam) {
+                setSelectedExam(exams[0]);
+                if (onExamChange) onExamChange(exams[0].examName || exams[0].name);
             }
         } catch (e) {
             console.error(e);
@@ -183,57 +148,19 @@ export default function InteractionJudge({
         }
     };
 
-    const pickRosterUser = (uid) => {
-        if (!uid) {
-            setUserId(null);
-            setDepartmentId(null);
-            return;
-        }
-        const u = roster.find(x => x.userId === uid);
-        if (!u) return;
-        setUserId(u.userId);
-        setUserName(u.realName || u.username);
-        setDepartment(u.departmentName || '');
-        setDepartmentId(u.departmentId || null);
-        setEmployeeId(u.employeeNo || '');
-    };
-
-    const calculateExamStats = async (slides, settings) => {
-        let allPoints = [];
-        for (const slide of slides) {
-            try {
-                const res = await fetch(`/api/assets/meta/${slide}`);
-                const data = await res.json();
-                allPoints.push(...(data.meta?.items || []));
-            } catch (e) {
-                console.error('获取题目元数据失败', e);
-            }
-        }
-
-        const scoreMap = buildPointScoreMap(allPoints, settings);
-        const paperTotal = settings.total_score || 100;
-        const mapSum = Object.values(scoreMap).reduce((a, b) => a + b, 0);
-        // 防御：分值表总和必须等于卷面总分
-        if (allPoints.length > 0 && mapSum !== paperTotal) {
-            console.warn('[SafeSpot] 分值表总和异常', { mapSum, paperTotal, scoreMap });
-        }
-
-        pointScoreMapRef.current = scoreMap;
-        paperTotalRef.current = paperTotal;
-        setPointScoreMap(scoreMap);
-        setScoringReady(true);
-        return scoreMap;
-    };
-
-    const loadQuestion = async (img) => {
-        if (!img) return;
-        const res = await fetch(`/api/assets/meta/${img.name}`);
-        const data = await res.json();
-        setMetaData(data.meta?.items || []);
-        setFoundItems([]);
-        setMissCount(0);
-        setShowHints(false);
-        setEffectPoint(null);
+    const applySlideFromServer = (slide) => {
+        if (!slide) return;
+        const items = slide.items || [];
+        setMetaData(items);
+        if (slide.hazardHint != null) setHazardTotal(slide.hazardHint);
+        else if (slide.revealed) setHazardTotal(items.length);
+        setFoundItems(items.filter((it) => it.found).map((it) => it.id));
+        setMissCount(slide.missCount || 0);
+        setShowHints(!!slide.revealed);
+        const map = {};
+        items.forEach((it) => { if (it.points != null) map[it.id] = it.points; });
+        setPointScoreMap((prev) => ({ ...prev, ...map }));
+        pointScoreMapRef.current = { ...pointScoreMapRef.current, ...map };
     };
 
     const executeStart = async (examObj) => {
@@ -251,32 +178,39 @@ export default function InteractionJudge({
             return;
         }
 
-        const settings = parseExamSettings(examObj);
-        setExamSettings(settings);
-        setExamId(examObj.examName || examObj.name);
-        setImages(testPaper);
-        setCurrentIndex(0);
-        setTotalScore(0);
-        totalScoreRef.current = 0;
-        scoredIdsRef.current = new Set();
-        pointScoreMapRef.current = {};
-        paperTotalRef.current = settings.total_score || 100;
-        sessionLogRef.current = [];
-        setSessionLog([]);
-        setMissedItems([]);
-        setScoringReady(false);
-        setFinalResult(null);
-        startedAtRef.current = Date.now();
-        if (attemptMode === 'exam' && settings.time_limit_sec > 0) {
-            setTimeLeft(settings.time_limit_sec);
-        } else {
-            setTimeLeft(null);
+        try {
+            const attempt = await api.post('/api/exam-sessions', {
+                examId: examObj.name || examObj.examName,
+                mode: attemptMode,
+                userName: userName.trim(),
+                department: department.trim() || undefined,
+                employeeId: employeeId.trim() || undefined
+            });
+            const settings = parseExamSettings(examObj);
+            setExamSettings(settings);
+            setExamId(attempt.examId || examObj.examName || examObj.name);
+            setAttemptId(attempt.id);
+            setImages(testPaper);
+            setCurrentIndex(0);
+            setTotalScore(attempt.score || 0);
+            totalScoreRef.current = attempt.score || 0;
+            scoredIdsRef.current = new Set();
+            pointScoreMapRef.current = {};
+            paperTotalRef.current = attempt.paperTotal || settings.total_score || 100;
+            sessionLogRef.current = [];
+            setSessionLog([]);
+            setMissedItems([]);
+            setScoringReady(true);
+            setFinalResult(null);
+            startedAtRef.current = attempt.startedAt || Date.now();
+            if (attempt.timeLeft != null) setTimeLeft(attempt.timeLeft);
+            else setTimeLeft(null);
+            applySlideFromServer(attempt.slides?.[0]);
+            setPhase('testing');
+            if (onExamStart) onExamStart(examObj.examName || examObj.name);
+        } catch (e) {
+            showToast(e.message || '开考失败', 'error');
         }
-
-        await calculateExamStats(examObj.slides, settings);
-        await loadQuestion(testPaper[0]);
-        setPhase('testing');
-        if (onExamStart) onExamStart(examObj.examName || examObj.name);
     };
 
     const goNextLobby = () => {
@@ -299,80 +233,41 @@ export default function InteractionJudge({
         if (currentIndex < images.length - 1) {
             const nextIdx = currentIndex + 1;
             setCurrentIndex(nextIdx);
-            loadQuestion(images[nextIdx]);
+            setShowHints(false);
+            setEffectPoint(null);
+            if (attemptId) {
+                try {
+                    const att = await api.get(`/api/exam-sessions/${attemptId}`);
+                    applySlideFromServer(att.slides?.[nextIdx]);
+                    setTotalScore(att.score || 0);
+                    if (att.timeLeft != null) setTimeLeft(att.timeLeft);
+                } catch (e) {
+                    showToast(e.message || '加载下一题失败', 'error');
+                }
+            }
             return;
         }
+        await submitAttempt();
+    };
 
-        if (submitting) return;
+    const submitAttempt = async () => {
+        if (submitting || !attemptId) return;
         setSubmitting(true);
-        const paperTotal = paperTotalRef.current || examSettings.total_score || 100;
-        // 交卷前按「已得分点」从分值表重算，杜绝过程中累加误差
-        let recomputed = 0;
-        scoredIdsRef.current.forEach((id) => {
-            recomputed += pointScoreMapRef.current[id] || 0;
-        });
-        const score = clampScore(recomputed, paperTotal);
-        totalScoreRef.current = score;
-        setTotalScore(score);
-        const duration = startedAtRef.current ? Date.now() - startedAtRef.current : null;
-        const grade = getGrade(score, paperTotal);
-
-        // 未命中点写入 session_log，供错题本/薄弱点
-        const unfound = [];
-        for (const img of images) {
-            try {
-                const res = await fetch(`/api/assets/meta/${img.name}`);
-                const data = await res.json();
-                for (const it of (data.meta?.items || [])) {
-                    if (!scoredIdsRef.current.has(it.id)) {
-                        unfound.push(it);
-                        pushLog({
-                            type: 'submit',
-                            result: 'unfound',
-                            itemId: it.id,
-                            clauseId: it.clauseId,
-                            label: it.description || it.clauseId,
-                            slideId: img.name
-                        });
-                    }
-                }
-            } catch (_) { /* ignore */ }
-        }
-        setMissedItems(unfound);
-
         try {
-            const res = await fetch('/api/session/record', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userName: userName.trim(),
-                    department: department.trim() || undefined,
-                    employeeId: employeeId.trim() || undefined,
-                    userId: userId || undefined,
-                    departmentId: departmentId || undefined,
-                    examId: examId || 'Fallback-Training',
-                    examName: selectedExam?.examName || examId,
-                    score,
-                    paperTotal,
-                    duration,
-                    mode: attemptMode,
-                    sessionLog: sessionLogRef.current,
-                    hazardsTotal: Object.keys(pointScoreMapRef.current).length,
-                    slideCount: images.length,
-                    completedAt: Date.now()
-                })
-            });
-            const body = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                throw new Error(body.error || '上传失败');
-            }
+            const body = await api.post(`/api/exam-sessions/${attemptId}/submit`, {});
+            const paperTotal = body.paperTotal || paperTotalRef.current || 100;
+            const score = body.score;
+            const grade = body.grade
+                ? { ...getGrade(score, paperTotal), label: body.grade.label, key: body.grade.key }
+                : getGrade(score, paperTotal);
+            setMissedItems(body.missed || []);
             setFinalResult({
                 score,
                 grade,
                 paperTotal,
-                duration,
-                mode: attemptMode,
-                missed: unfound,
+                duration: body.duration,
+                mode: body.mode || attemptMode,
+                missed: body.missed || [],
                 pri: body.pri,
                 invalidClicks: body.invalidClicks
             });
@@ -385,71 +280,36 @@ export default function InteractionJudge({
         }
     };
 
-    const handleCanvasClick = (e) => {
+    const handleCanvasClick = async (e) => {
         if (showHints) return;
-        if (!scoringReady) return;
-        if (!imageRef.current || !metaData) return;
+        if (!scoringReady || !attemptId) return;
+        if (!imageRef.current) return;
 
         const rect = imageRef.current.getBoundingClientRect();
         const uX = (e.clientX - rect.left) / rect.width;
         const uY = (e.clientY - rect.top) / rect.height;
 
-        let hitItem = null;
-        for (const item of metaData) {
-            if (hitTestAnnotation(uX, uY, item)) {
-                hitItem = item;
-                break;
-            }
-        }
-
-        if (hitItem) {
-            // 已计分：只播动画，绝不二次加分（含 React StrictMode / 连点）
-            if (scoredIdsRef.current.has(hitItem.id)) {
-                triggerMomentaryEffect(uX, uY, 'hit');
+        try {
+            const body = await api.post(`/api/exam-sessions/${attemptId}/click`, {
+                slideId: activeImage?.name,
+                x: uX,
+                y: uY
+            });
+            if (body.expired) {
+                triggerMomentaryEffect(uX, uY, 'miss');
+                showToast('考试时间已到，正在交卷', 'error');
+                await submitAttempt();
                 return;
             }
-
-            scoredIdsRef.current.add(hitItem.id);
-            const scoreToAdd = pointScoreMapRef.current[hitItem.id] || 0;
-            const paperTotal = paperTotalRef.current || 100;
-            totalScoreRef.current = clampScore(totalScoreRef.current + scoreToAdd, paperTotal);
-            setTotalScore(totalScoreRef.current);
-            pushLog({
-                type: 'click',
-                result: 'hit',
-                x: uX, y: uY,
-                itemId: hitItem.id,
-                clauseId: hitItem.clauseId,
-                label: hitItem.description || hitItem.clauseId,
-                scoreDelta: scoreToAdd,
-                slideId: activeImage?.name
-            });
-
-            setFoundItems(prev => {
-                if (prev.includes(hitItem.id)) return prev;
-                const newFound = [...prev, hitItem.id];
-                if (newFound.length >= metaData.length) {
-                    setTimeout(() => setShowHints(true), 800);
-                }
-                return newFound;
-            });
-            triggerMomentaryEffect(uX, uY, 'hit');
-        } else {
-            const nextMiss = missCount + 1;
-            pushLog({
-                type: 'click',
-                result: 'miss',
-                kind: 'invalid_click',
-                x: uX, y: uY,
-                missIndex: nextMiss,
-                slideId: activeImage?.name
-            });
-            setMissCount(prev => {
-                const next = prev + 1;
-                if (next >= MAX_MISS) setShowHints(true);
-                return next;
-            });
-            triggerMomentaryEffect(uX, uY, 'miss');
+            if (body.score != null) {
+                setTotalScore(body.score);
+                totalScoreRef.current = body.score;
+            }
+            if (body.timeLeft != null) setTimeLeft(body.timeLeft);
+            if (body.slide) applySlideFromServer(body.slide);
+            triggerMomentaryEffect(uX, uY, body.result === 'hit' ? 'hit' : 'miss');
+        } catch (err) {
+            showToast(err.message || '判定失败', 'error');
         }
     };
 
@@ -475,306 +335,54 @@ export default function InteractionJudge({
     };
 
     const activeImage = images[currentIndex];
-    const isAllFound = foundItems.length === metaData?.length && metaData?.length > 0;
+    const isAllFound = hazardTotal > 0 && foundItems.length >= hazardTotal;
     const ruleLabel = examSettings.scoring_rule === 'average' ? '均分赋分' : '权重比例赋分';
 
-    // —— 结果页 ——
     if (phase === 'result' && finalResult) {
-        const g = finalResult.grade;
         return (
-            <div className="flex-1 w-full flex items-center justify-center bg-gray-900 p-8">
-                <div className="max-w-lg w-full bg-gray-800 rounded-3xl p-10 border border-gray-700 shadow-2xl text-center">
-                    <div className={`text-6xl font-black mb-2 ${g.color}`}>{g.label}</div>
-                    <p className="text-gray-400 text-sm mb-2">
-                        {finalResult.mode === 'practice' ? '练习结果（不计入正式榜）' : '考核等第'}
-                    </p>
-                    <div className="text-5xl font-black text-white mb-2">
-                        {finalResult.score}
-                        <span className="text-lg text-gray-500 font-medium"> / {finalResult.paperTotal}</span>
-                    </div>
-                    <p className="text-gray-400 mb-2">{userName}{department ? ` · ${department}` : ''}</p>
-                    <p className="text-xs text-gray-500 mb-2">
-                        卷宗：{examId}
-                        {finalResult.duration != null && ` · 用时 ${Math.round(finalResult.duration / 1000)} 秒`}
-                    </p>
-                    {(finalResult.pri != null || finalResult.invalidClicks != null) && (
-                        <p className="text-xs text-sky-400/90 mb-4">
-                            识别熟练度 PRI {finalResult.pri ?? '—'}
-                            {finalResult.invalidClicks != null && ` · 无效点击 ${finalResult.invalidClicks} 次`}
-                        </p>
-                    )}
-                    {(finalResult.missed?.length > 0 || missedItems.length > 0) && (
-                        <div className="text-left bg-gray-900/60 rounded-xl p-4 mb-6 max-h-40 overflow-y-auto border border-gray-700">
-                            <p className="text-xs font-bold text-amber-400 mb-2">错题本 / 未掌握条款</p>
-                            {(finalResult.missed || missedItems).map(it => (
-                                <div key={it.id} className="text-xs text-gray-300 mb-1.5 border-b border-gray-800 pb-1">
-                                    {clausesDict[it.clauseId]?.desc || it.description || it.clauseId}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => {
-                                if (selectedExam) executeStart(selectedExam);
-                            }}
-                            className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
-                        >
-                            <RotateCcw className="w-4 h-4" /> 再考一次
-                        </button>
-                        <button
-                            onClick={() => resetToLobby(true)}
-                            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
-                        >
-                            <Home className="w-4 h-4" /> 返回大厅
-                        </button>
-                    </div>
-                </div>
-                {toast.show && (
-                    <ToastView toast={toast} />
-                )}
-            </div>
+            <ExamResult
+                finalResult={finalResult}
+                userName={userName}
+                department={department}
+                examId={examId}
+                selectedExam={selectedExam}
+                clausesDict={clausesDict}
+                missedItems={missedItems}
+                toast={toast}
+                onRetry={() => selectedExam && executeStart(selectedExam)}
+                onLobby={() => resetToLobby(true)}
+            />
         );
     }
 
-    // —— 候考大厅三步 ——
     if (phase !== 'testing') {
         return (
-            <div className="flex-1 w-full flex items-center justify-center bg-gray-900 p-8">
-                <div className="max-w-xl w-full bg-gray-800 rounded-3xl p-10 shadow-3xl border border-gray-700">
-                    <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-indigo-600/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-indigo-500/30">
-                            <Target className="w-8 h-8 text-indigo-500" />
-                        </div>
-                        <h1 className="text-2xl font-black text-white tracking-tight mb-2">考核大厅</h1>
-                        <p className="text-gray-400 text-sm">选卷 → 登记身份 → 确认规则 → 开考</p>
-                        <div className="flex justify-center gap-2 mt-6">
-                            {[1, 2, 3].map(s => (
-                                <div
-                                    key={s}
-                                    className={`h-1.5 w-12 rounded-full transition ${lobbyStep >= s ? 'bg-indigo-500' : 'bg-gray-700'}`}
-                                />
-                            ))}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                            {lobbyStep === 1 && '步骤 1 / 3 · 选择试卷'}
-                            {lobbyStep === 2 && '步骤 2 / 3 · 身份登记'}
-                            {lobbyStep === 3 && '步骤 3 / 3 · 规则说明'}
-                        </p>
-                    </div>
-
-                    {lobbyStep === 1 && (
-                        <div className="space-y-5">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-400 mb-2">模式</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setAttemptMode('exam')}
-                                        className={`py-3 rounded-xl text-sm font-bold border ${attemptMode === 'exam' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-gray-900 border-gray-700 text-gray-400'}`}
-                                    >
-                                        正式考核
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setAttemptMode('practice')}
-                                        className={`py-3 rounded-xl text-sm font-bold border ${attemptMode === 'practice' ? 'bg-sky-600 border-sky-500 text-white' : 'bg-gray-900 border-gray-700 text-gray-400'}`}
-                                    >
-                                        练习模式
-                                    </button>
-                                </div>
-                                <p className="text-[11px] text-gray-500 mt-2">
-                                    {attemptMode === 'practice' ? '练习可查看提示，成绩记为 practice，不进正式龙虎榜。' : '考核隐藏部分提示；成绩进正式榜。'}
-                                </p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-bold text-gray-400 mb-2">选择考核试卷</label>
-                                <select
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    value={selectedExam?.examName || selectedExam?.name || ''}
-                                    onChange={(e) => {
-                                        const exam = allExams.find(ex => (ex.examName || ex.name) === e.target.value);
-                                        setSelectedExam(exam || null);
-                                        if (exam && onExamChange) onExamChange(exam.examName || exam.name);
-                                    }}
-                                >
-                                    {allExams.length === 0 && <option value="">暂无已发布的试卷</option>}
-                                    {allExams.map(ex => (
-                                        <option key={ex.name || ex.examName} value={ex.examName || ex.name}>
-                                            {ex.examName || ex.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            {selectedExam && (
-                                <div className="bg-gray-900/50 rounded-2xl p-5 border border-gray-700/50">
-                                    <h3 className="text-indigo-400 font-bold mb-2 flex justify-between text-sm">
-                                        卷面详情
-                                        <span className="text-gray-500 text-xs font-normal">
-                                            {selectedExam.slides?.length || 0} 题 · 总分 {parseExamSettings(selectedExam).total_score}
-                                            {parseExamSettings(selectedExam).time_limit_sec > 0 && ` · 限时 ${parseExamSettings(selectedExam).time_limit_sec}s`}
-                                        </span>
-                                    </h3>
-                                    <p className="text-sm text-gray-300 leading-relaxed">
-                                        {selectedExam.description || '暂无详细任务指引。'}
-                                    </p>
-                                </div>
-                            )}
-                            <button
-                                disabled={!selectedExam}
-                                onClick={goNextLobby}
-                                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2"
-                            >
-                                下一步：身份登记 <ChevronRight className="w-5 h-5" />
-                            </button>
-                        </div>
-                    )}
-
-                    {lobbyStep === 2 && (
-                        <div className="space-y-4">
-                            {currentUser ? (
-                                <div className="bg-emerald-900/30 border border-emerald-700/50 rounded-xl p-4 text-sm text-emerald-200">
-                                    已登录：<b>{currentUser.realName || currentUser.username}</b>
-                                    {currentUser.departmentName ? ` · ${currentUser.departmentName}` : ''}
-                                    <span className="block text-xs text-emerald-400/80 mt-1">成绩将绑定账号 user_id</span>
-                                </div>
-                            ) : (
-                                <div className="flex items-center justify-between bg-gray-900/60 border border-gray-700 rounded-xl p-3">
-                                    <span className="text-xs text-gray-400">建议登录后开考，便于对账与榜单去重</span>
-                                    {onRequestLogin && (
-                                        <button
-                                            type="button"
-                                            onClick={onRequestLogin}
-                                            className="text-xs font-bold text-indigo-400 hover:text-indigo-300 px-2 py-1"
-                                        >
-                                            去登录
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                            {roster.length > 0 && !currentUser && (
-                                <div>
-                                    <label className="flex items-center text-sm font-bold text-gray-400 mb-2">
-                                        从名册选择
-                                    </label>
-                                    <select
-                                        className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                                        value={userId || ''}
-                                        onChange={e => pickRosterUser(e.target.value)}
-                                    >
-                                        <option value="">— 访客手填 —</option>
-                                        {roster.map(u => (
-                                            <option key={u.userId} value={u.userId}>
-                                                {u.realName}{u.departmentName ? ` · ${u.departmentName}` : ''}{u.employeeNo ? ` · ${u.employeeNo}` : ''}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-                            <div>
-                                <label className="flex items-center text-sm font-bold text-gray-400 mb-2">
-                                    <User className="w-4 h-4 mr-1" /> 姓名 <span className="text-red-400 ml-1">*</span>
-                                </label>
-                                <input
-                                    value={userName}
-                                    onChange={e => { setUserName(e.target.value); if (!currentUser) setUserId(null); }}
-                                    placeholder="请输入真实姓名"
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                                    autoFocus
-                                    readOnly={!!currentUser}
-                                />
-                            </div>
-                            <div>
-                                <label className="flex items-center text-sm font-bold text-gray-400 mb-2">
-                                    <Building2 className="w-4 h-4 mr-1" /> 部门（可选）
-                                </label>
-                                <input
-                                    value={department}
-                                    onChange={e => setDepartment(e.target.value)}
-                                    placeholder="如：生产一车间"
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="flex items-center text-sm font-bold text-gray-400 mb-2">
-                                    <IdCard className="w-4 h-4 mr-1" /> 工号（可选）
-                                </label>
-                                <input
-                                    value={employeeId}
-                                    onChange={e => setEmployeeId(e.target.value)}
-                                    placeholder="工号 / 手机号"
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                                />
-                            </div>
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    onClick={() => setLobbyStep(1)}
-                                    className="px-4 py-3 rounded-xl bg-gray-700 text-white font-bold flex items-center gap-1"
-                                >
-                                    <ChevronLeft className="w-4 h-4" /> 上一步
-                                </button>
-                                <button
-                                    onClick={goNextLobby}
-                                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
-                                >
-                                    下一步：规则确认 <ChevronRight className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {lobbyStep === 3 && selectedExam && (
-                        <div className="space-y-5">
-                            <div className="bg-gray-900/60 rounded-2xl p-5 border border-gray-700 space-y-3 text-sm text-gray-300">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">考生</span>
-                                    <span className="font-bold text-white">{userName}{department ? ` · ${department}` : ''}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">试卷</span>
-                                    <span className="font-bold text-white">{selectedExam.examName || selectedExam.name}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">场景题量</span>
-                                    <span>{selectedExam.slides?.length || 0} 题</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">卷面总分</span>
-                                    <span>{parseExamSettings(selectedExam).total_score} 分</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">计分规则</span>
-                                    <span>{parseExamSettings(selectedExam).scoring_rule === 'average' ? '均分赋分' : '权重比例赋分'}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500">单题误点容错</span>
-                                    <span className="text-red-400 font-bold">{MAX_MISS} 次</span>
-                                </div>
-                                <p className="text-xs text-gray-500 pt-2 border-t border-gray-700 leading-relaxed">
-                                    在现场图上点击隐患位置得分；误点达到上限后揭晓答案。请仔细观察 PPE、临边、用电等红线。
-                                </p>
-                            </div>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setLobbyStep(2)}
-                                    className="px-4 py-3 rounded-xl bg-gray-700 text-white font-bold flex items-center gap-1"
-                                >
-                                    <ChevronLeft className="w-4 h-4" /> 上一步
-                                </button>
-                                <button
-                                    onClick={() => executeStart(selectedExam)}
-                                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2"
-                                >
-                                    <ShieldCheck className="w-5 h-5" /> 确认并开始考核
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-                {toast.show && <ToastView toast={toast} />}
-            </div>
+            <ExamLobby
+                lobbyStep={lobbyStep}
+                attemptMode={attemptMode}
+                setAttemptMode={setAttemptMode}
+                allExams={allExams}
+                selectedExam={selectedExam}
+                onSelectExam={(exam) => {
+                    setSelectedExam(exam);
+                    if (exam && onExamChange) onExamChange(exam.examName || exam.name);
+                }}
+                currentUser={currentUser}
+                onRequestLogin={onRequestLogin}
+                userName={userName}
+                setUserName={setUserName}
+                department={department}
+                setDepartment={setDepartment}
+                employeeId={employeeId}
+                setEmployeeId={setEmployeeId}
+                onNext={goNextLobby}
+                onBack={(step) => setLobbyStep(step)}
+                onStart={executeStart}
+                toast={toast}
+            />
         );
     }
+
 
     // 考试中无图
     if (!activeImage) {
@@ -782,14 +390,14 @@ export default function InteractionJudge({
     }
 
     return (
-        <div className="flex-1 w-full flex bg-gray-900">
+        <div className="flex-1 w-full flex bg-gray-900 relative">
             <div className="flex-1 relative flex items-center justify-center bg-black/90 p-4 border-r border-gray-700">
                 <div className="absolute top-4 left-4 bg-white/10 backdrop-blur-md px-4 py-2 rounded-lg flex space-x-4 border border-white/20 z-10">
                     <div className="text-white">
                         <span className="text-sm text-gray-400">本题隐患:</span>
                         <span className="ml-2 font-bold text-lg text-emerald-400">
                             {attemptMode === 'practice' || showHints
-                                ? `${foundItems.length} / ${metaData?.length || 0}`
+                                ? `${foundItems.length} / ${hazardTotal || metaData?.length || 0}`
                                 : `${foundItems.length} 已发现`}
                         </span>
                     </div>
@@ -867,7 +475,16 @@ export default function InteractionJudge({
                 </div>
             </div>
 
-            <div className="w-[350px] bg-gray-800 text-gray-200 p-6 flex flex-col">
+            <button
+                type="button"
+                onClick={() => setShowClauseDrawer(true)}
+                className="md:hidden absolute bottom-4 right-4 z-30 bg-indigo-600 text-white text-sm font-bold px-4 py-3 rounded-xl shadow-lg"
+            >
+                条款 / 下一题
+            </button>
+            <div className={`w-full md:w-[350px] bg-gray-800 text-gray-200 p-6 flex-col md:flex
+                ${showClauseDrawer ? 'fixed inset-0 z-40 flex' : 'hidden md:flex'}`}>
+                <button type="button" className="md:hidden self-end text-sm mb-2" onClick={() => setShowClauseDrawer(false)}>关闭</button>
                 <div className="mb-4 pb-4 border-b border-gray-700">
                     <h2 className="text-xl font-bold flex items-center">
                         <Target className="w-5 h-5 mr-2 text-blue-400" />
@@ -934,22 +551,12 @@ export default function InteractionJudge({
                         </div>
                     ) : (
                         <div className="text-xs text-center text-gray-500 bg-gray-900 p-3 rounded border border-gray-700">
-                            找出本题全部 {metaData?.length || 0} 处隐患后可进入下一关。
+                            找出本题全部隐患后可进入下一关。
                         </div>
                     )}
                 </div>
             </div>
-            {toast.show && <ToastView toast={toast} />}
-        </div>
-    );
-}
-
-function ToastView({ toast }) {
-    return (
-        <div className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100] px-8 py-4 rounded-2xl shadow-3xl flex flex-col items-center space-y-3 min-w-[280px] border-2 backdrop-blur-md
-            ${toast.type === 'success' ? 'bg-emerald-500/90 text-white border-emerald-400' : 'bg-red-500/90 text-white border-red-400'}`}>
-            {toast.type === 'success' ? <CheckCircle2 className="w-10 h-10" /> : <AlertTriangle className="w-10 h-10" />}
-            <span className="text-base font-black tracking-wide text-center">{toast.message}</span>
+            <ExamToast toast={toast} />
         </div>
     );
 }

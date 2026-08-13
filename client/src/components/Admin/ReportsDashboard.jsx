@@ -10,6 +10,8 @@ export default function ReportsDashboard() {
     const [rows, setRows] = useState([]);
     const [weak, setWeak] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [attendance, setAttendance] = useState(null);
+    const [rangeDays, setRangeDays] = useState(0);
 
     useEffect(() => {
         fetch('/api/admin/reports/exam-ids').then(r => r.json()).then(setExamIds).catch(() => {});
@@ -22,12 +24,21 @@ export default function ReportsDashboard() {
             if (examId) params.set('examId', examId);
             if (department) params.set('department', department);
             if (userName) params.set('userName', userName);
-            const [recs, w] = await Promise.all([
+            if (rangeDays > 0) {
+                const from = Date.now() - rangeDays * 86400000;
+                params.set('from', String(from));
+            }
+            const attQs = new URLSearchParams();
+            if (examId) attQs.set('examId', examId);
+            if (rangeDays > 0) attQs.set('from', String(Date.now() - rangeDays * 86400000));
+            const [recs, w, att] = await Promise.all([
                 fetch(`/api/admin/reports/records?${params}`).then(r => r.json()),
-                fetch(`/api/admin/reports/weak-items?${examId ? `examId=${encodeURIComponent(examId)}&` : ''}limit=15`).then(r => r.json())
+                fetch(`/api/admin/reports/weak-items?${examId ? `examId=${encodeURIComponent(examId)}&` : ''}limit=15`).then(r => r.json()),
+                examId ? fetch(`/api/admin/reports/attendance?${attQs}`).then(r => r.json()).catch(() => null) : Promise.resolve(null)
             ]);
             setRows(Array.isArray(recs) ? recs : []);
             setWeak(Array.isArray(w) ? w : []);
+            setAttendance(att && !att.error ? att : null);
         } finally {
             setLoading(false);
         }
@@ -39,6 +50,13 @@ export default function ReportsDashboard() {
         const params = new URLSearchParams({ mode });
         if (examId) params.set('examId', examId);
         window.open(`/api/admin/reports/export.csv?${params}`, '_blank');
+    };
+
+    const exportAttendance = () => {
+        if (!examId) return;
+        const params = new URLSearchParams({ examId });
+        if (rangeDays > 0) params.set('from', String(Date.now() - rangeDays * 86400000));
+        window.open(`/api/admin/reports/attendance.csv?${params}`, '_blank');
     };
 
     const passRate = () => {
@@ -89,6 +107,15 @@ export default function ReportsDashboard() {
                     <input value={department} onChange={e => setDepartment(e.target.value)} className="block mt-1 border rounded-lg px-2 py-1.5 text-sm" placeholder="模糊" />
                 </label>
                 <label className="text-xs text-gray-500">
+                    时间
+                    <select value={rangeDays} onChange={e => setRangeDays(Number(e.target.value))} className="block mt-1 border rounded-lg px-2 py-1.5 text-sm">
+                        <option value={0}>全部时间</option>
+                        <option value={7}>近 7 天</option>
+                        <option value={30}>近 30 天</option>
+                        <option value={90}>近 90 天</option>
+                    </select>
+                </label>
+                <label className="text-xs text-gray-500">
                     姓名
                     <input value={userName} onChange={e => setUserName(e.target.value)} className="block mt-1 border rounded-lg px-2 py-1.5 text-sm" placeholder="模糊" />
                 </label>
@@ -96,6 +123,21 @@ export default function ReportsDashboard() {
                     <Filter className="w-4 h-4" /> 查询
                 </button>
             </div>
+
+            {attendance && (
+                <div className="px-4 py-2 border-b bg-amber-50/60 flex flex-wrap items-center gap-3 text-xs">
+                    <span className="font-bold text-amber-800">本卷名单</span>
+                    <span>未考 <b className="text-red-600">{attendance.counts.absent}</b></span>
+                    <span>未过 <b className="text-amber-700">{attendance.counts.failed}</b></span>
+                    <span>已过 <b className="text-emerald-700">{attendance.counts.passed}</b></span>
+                    <span className="text-gray-400">{attendance.assigned ? '按布置范围' : '按全部在册学员'}</span>
+                    <button type="button" onClick={exportAttendance} className="ml-auto px-2 py-1 bg-white border rounded font-bold text-amber-800">导出未考/未过</button>
+                    {attendance.absent.slice(0, 8).map((p) => (
+                        <span key={p.userId} className="bg-white border px-1.5 py-0.5 rounded text-gray-600">{p.userName}</span>
+                    ))}
+                    {attendance.absent.length > 8 && <span className="text-gray-400">…</span>}
+                </div>
+            )}
 
             <div className="flex-1 flex min-h-0">
                 <div className="flex-1 overflow-auto p-4">

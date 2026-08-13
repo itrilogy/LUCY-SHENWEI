@@ -22,6 +22,8 @@ async function initDB() {
 
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
+    db.pragma('busy_timeout = 5000');
 
     // 1. 创建表结构
     db.exec(`
@@ -230,7 +232,78 @@ async function initDB() {
         CREATE INDEX IF NOT EXISTS idx_attempt_stats_time ON attempt_stats(completed_at);
         CREATE INDEX IF NOT EXISTS idx_kef_clause ON knowledge_error_facts(clause_id);
         CREATE INDEX IF NOT EXISTS idx_kef_record ON knowledge_error_facts(record_id);
+
+        CREATE TABLE IF NOT EXISTS schema_version (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            version INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS auth_sessions (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            role TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS exam_attempts (
+            id TEXT PRIMARY KEY,
+            exam_id TEXT NOT NULL,
+            exam_name TEXT,
+            user_id TEXT,
+            user_name TEXT NOT NULL,
+            department TEXT,
+            department_id TEXT,
+            employee_id TEXT,
+            mode TEXT NOT NULL,
+            paper_total INTEGER,
+            scoring_rule TEXT,
+            time_limit_sec INTEGER,
+            started_at INTEGER NOT NULL,
+            submitted_at INTEGER,
+            status TEXT NOT NULL,
+            snapshot_json TEXT NOT NULL,
+            state_json TEXT NOT NULL,
+            record_id INTEGER
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_auth_sessions_exp ON auth_sessions(expires_at);
+        CREATE INDEX IF NOT EXISTS idx_exam_attempts_exam ON exam_attempts(exam_id);
+
+        CREATE TABLE IF NOT EXISTS assignments (
+            id TEXT PRIMARY KEY,
+            exam_id TEXT NOT NULL,
+            due_at INTEGER,
+            required INTEGER DEFAULT 1,
+            created_at INTEGER,
+            created_by TEXT
+        );
+        CREATE TABLE IF NOT EXISTS assignment_targets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            assignment_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            target_id TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_assign_exam ON assignments(exam_id);
+
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT,
+            username TEXT,
+            action TEXT NOT NULL,
+            target TEXT,
+            detail TEXT,
+            created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_log(created_at);
     `);
+
+    const ver = db.prepare('SELECT version FROM schema_version WHERE id = 1').get();
+    if (!ver) {
+        db.prepare('INSERT INTO schema_version (id, version) VALUES (1, 4)').run();
+    } else if (ver.version < 4) {
+        db.prepare('UPDATE schema_version SET version = 4 WHERE id = 1').run();
+    }
 
     // 默认组织与管理员种子
     try {
@@ -353,6 +426,17 @@ async function initDB() {
     if (assetCount === 0 || knowledgeCount === 0 || examCount === 0 || recordCount === 0) {
         console.log("检测到部分数据缺失，执行按需迁移脚本...");
         await migrateData({ assetCount, knowledgeCount, examCount, recordCount });
+    }
+
+    try {
+        const liveExams = db.prepare('SELECT count(*) as c FROM exams').get().c;
+        if (liveExams === 0) {
+            const { seedStarterPack } = require('./seedStarter');
+            const seeded = seedStarterPack(db);
+            if (seeded.examId) console.log('[SafeSpot-DB] 已预置开箱示范卷', seeded.examId);
+        }
+    } catch (e) {
+        console.error('[SafeSpot-DB] 开箱卷预置失败', e.message);
     }
 }
 

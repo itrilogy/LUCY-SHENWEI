@@ -13,6 +13,8 @@ server/node_modules/
 # SQLite runtime side files
 *.db-shm
 *.db-wal
+server/data/*.db-shm
+server/data/*.db-wal
 
 # Logs & env
 *.log
@@ -22,3 +24,6 @@ server/node_modules/
 # Build
 client/dist/
 dist/
+
+# Local backups
+server/data/backups/

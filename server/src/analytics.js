@@ -1,6 +1,6 @@
 /**
  * SafeSpot 学情分析核心：PRI、知识掌握、结论引擎
- * 设计见 docs/LEARNING_ANALYTICS_DESIGN.md
+ * 设计见 docs/ANALYTICS.md
  */
 
 const MAX_MISS_DEFAULT = 3;

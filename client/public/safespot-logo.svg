@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 96" role="img" aria-label="SafeSpot">
+  <title>SafeSpot</title>
+  <defs>
+    <radialGradient id="ss-spot" cx="38%" cy="34%" r="68%">
+      <stop offset="0%" stop-color="#F3C45A"/>
+      <stop offset="52%" stop-color="#E39B2E"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </radialGradient>
+  </defs>
+  <g transform="translate(6,6)">
+    <circle cx="42" cy="42" r="40" fill="#2A3338"/>
+    <circle cx="42" cy="42" r="37.2" fill="none" stroke="#1A2226" stroke-width="0.7"/>
+    <circle cx="42" cy="42" r="34.8" fill="none" stroke="#3D484E" stroke-width="0.5"/>
+    <circle cx="42" cy="42" r="32.4" fill="none" stroke="#1A2226" stroke-width="0.45"/>
+    <circle cx="42" cy="42" r="27" fill="#F3EFE6"/>
+    <circle cx="42" cy="42" r="28.4" fill="none" stroke="#2F7A73" stroke-width="2"/>
+    <circle cx="42" cy="42" r="26.4" fill="none" stroke="#C4845A" stroke-width="1.1"/>
+    <g stroke="#2F7A73" stroke-width="1.65" stroke-linecap="butt">
+      <line x1="42" y1="17.8" x2="42" y2="29"/>
+      <line x1="42" y1="55" x2="42" y2="66.2"/>
+      <line x1="17.8" y1="42" x2="29" y2="42"/>
+      <line x1="55" y1="42" x2="66.2" y2="42"/>
+    </g>
+    <circle cx="53" cy="48.2" r="6" fill="url(#ss-spot)"/>
+  </g>
+  <text
+    x="108"
+    y="50"
+    fill="#1A2428"
+    font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', sans-serif"
+    font-size="38"
+    font-weight="800"
+    letter-spacing="-1.6"
+  >SafeSpot</text>
+  <text
+    x="110"
+    y="72"
+    fill="#2F7A73"
+    font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', sans-serif"
+    font-size="11"
+    font-weight="600"
+    letter-spacing="3.2"
+  >鹿溪联合创新实验室</text>
+</svg>

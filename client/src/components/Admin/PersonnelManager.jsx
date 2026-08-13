@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Users, Building2, Plus, Trash2, Save, UserPlus, Pencil, X, RotateCcw } from 'lucide-react';
+import ConfirmDialog from '../ConfirmDialog';
 
 /** 将扁平部门列表展开为带层级前缀的选项（深度优先） */
 function buildDeptOptions(depts, parentId = null, depth = 0, acc = []) {
@@ -103,6 +104,7 @@ export default function PersonnelManager() {
     const [q, setQ] = useState('');
     const [msg, setMsg] = useState('');
     const [msgType, setMsgType] = useState('ok');
+    const [confirmAct, setConfirmAct] = useState(null);
 
     // 部门：新建 / 编辑
     const [deptMode, setDeptMode] = useState('create'); // create | edit
@@ -214,21 +216,27 @@ export default function PersonnelManager() {
         }
     };
 
-    const delDept = async (id) => {
-        if (!confirm('删除该部门？下属人员将取消部门绑定。')) return;
-        try {
-            const res = await fetch(`/api/org/departments/${id}`, { method: 'DELETE' });
-            const e = await res.json().catch(() => ({}));
-            if (!res.ok) toast(e.error || '删除失败', 'err');
-            else {
-                if (selectedDept === id) setSelectedDept(null);
-                if (editingDeptId === id) resetDeptForm();
-                toast('已删除');
-                load();
+    const delDept = (id) => {
+        setConfirmAct({
+            title: '删除部门',
+            message: '删除该部门？下属人员将取消部门绑定。',
+            run: async () => {
+                setConfirmAct(null);
+                try {
+                    const res = await fetch(`/api/org/departments/${id}`, { method: 'DELETE' });
+                    const e = await res.json().catch(() => ({}));
+                    if (!res.ok) toast(e.error || '删除失败', 'err');
+                    else {
+                        if (selectedDept === id) setSelectedDept(null);
+                        if (editingDeptId === id) resetDeptForm();
+                        toast('已删除');
+                        load();
+                    }
+                } catch (e) {
+                    toast(e.message || '网络错误', 'err');
+                }
             }
-        } catch (e) {
-            toast(e.message || '网络错误', 'err');
-        }
+        });
     };
 
     const resetUserForm = () => {
@@ -311,12 +319,18 @@ export default function PersonnelManager() {
         }
     };
 
-    const disableUser = async (id) => {
-        if (!confirm('禁用该账号？（成绩记录保留）')) return;
-        await fetch(`/api/org/users/${id}`, { method: 'DELETE' });
-        toast('已禁用');
-        if (form.id === id) resetUserForm();
-        load();
+    const disableUser = (id) => {
+        setConfirmAct({
+            title: '禁用账号',
+            message: '禁用该账号？（成绩记录保留）',
+            run: async () => {
+                setConfirmAct(null);
+                await fetch(`/api/org/users/${id}`, { method: 'DELETE' });
+                toast('已禁用');
+                if (form.id === id) resetUserForm();
+                load();
+            }
+        });
     };
 
     const enableUser = async (id) => {
@@ -425,6 +439,26 @@ export default function PersonnelManager() {
                             className="flex-1 border rounded-lg px-3 py-2 text-sm"
                         />
                         <button type="button" onClick={load} className="px-4 py-2 bg-gray-100 rounded-lg text-sm font-bold">搜索</button>
+                        <label className="px-3 py-2 border rounded-lg text-xs font-bold cursor-pointer whitespace-nowrap">
+                            导入 CSV
+                            <input
+                                type="file"
+                                accept=".csv,text/csv"
+                                className="hidden"
+                                onChange={async (e) => {
+                                    const f = e.target.files?.[0];
+                                    if (!f) return;
+                                    const fd = new FormData();
+                                    fd.append('file', f);
+                                    const res = await fetch('/api/admin/personnel/import', { method: 'POST', body: fd });
+                                    const d = await res.json().catch(() => ({}));
+                                    if (res.ok) toast(`导入 ${d.created} 人` + (d.skipped?.length ? `，跳过 ${d.skipped.length}` : ''));
+                                    else toast(d.error || '导入失败', 'err');
+                                    e.target.value = '';
+                                    load();
+                                }}
+                            />
+                        </label>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4">
@@ -594,6 +628,14 @@ export default function PersonnelManager() {
                     </form>
                 </div>
             </div>
+            <ConfirmDialog
+                open={!!confirmAct}
+                title={confirmAct?.title}
+                message={confirmAct?.message}
+                danger
+                onCancel={() => setConfirmAct(null)}
+                onConfirm={() => confirmAct?.run?.()}
+            />
         </div>
     );
 }

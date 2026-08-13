@@ -4,6 +4,7 @@ import {
     Save, X, BookOpen, AlertCircle, ChevronRight,
     Layers, Database, Hash
 } from 'lucide-react';
+import ConfirmDialog from '../ConfirmDialog';
 
 const API_BASE = '/api/admin/knowledge';
 
@@ -18,6 +19,11 @@ export default function KnowledgeManager() {
     const [managerTab, setManagerTab] = useState('knowledge'); // 'knowledge' | 'risk'
 
     const [loading, setLoading] = useState(false);
+    const [toast, setToast] = useState('');
+    const flash = (msg) => {
+        setToast(msg);
+        setTimeout(() => setToast(''), 3000);
+    };
 
     // Generic edit states
     const [editingType, setEditingType] = useState(null); // 'scene' | 'category'
@@ -111,7 +117,7 @@ export default function KnowledgeManager() {
                 setShowSceneModal(false);
                 fetchScenes();
             }
-        } catch (e) { alert('创建失败'); }
+        } catch (e) { flash('创建失败'); }
     };
 
     const handleCreateCategory = async (e) => {
@@ -128,7 +134,7 @@ export default function KnowledgeManager() {
                 setShowCategoryModal(false);
                 fetchCategories(selectedScene.id);
             }
-        } catch (e) { alert('创建失败'); }
+        } catch (e) { flash('创建失败'); }
     };
 
     const handleSaveItem = async (e) => {
@@ -148,11 +154,18 @@ export default function KnowledgeManager() {
                 setShowItemModal(false);
                 fetchItems(selectedCategory.id);
             }
-        } catch (e) { alert('保存失败'); }
+        } catch (e) { flash('保存失败'); }
     };
 
+    const [confirmDel, setConfirmDel] = useState(null);
+
     const handleDelete = async (type, id) => {
-        if (!window.confirm('确定要删除此项吗？此操作不可撤销且将删除其下属关联内容。')) return;
+        setConfirmDel({ type, id });
+        return;
+    };
+
+    const doDelete = async (type, id) => {
+        setConfirmDel(null);
         try {
             const res = await fetch(`${API_BASE}/${type}s/${id}`, { method: 'DELETE' });
             if (res.ok) {
@@ -166,7 +179,7 @@ export default function KnowledgeManager() {
                     fetchItems(selectedCategory.id);
                 }
             }
-        } catch (e) { alert('删除失败'); }
+        } catch (e) { flash('删除失败'); }
     };
 
     const startEditing = (type, obj) => {
@@ -187,7 +200,7 @@ export default function KnowledgeManager() {
                 if (editingType === 'scene') fetchScenes();
                 else fetchCategories(selectedScene.id);
             }
-        } catch (e) { alert('更新失败'); }
+        } catch (e) { flash('更新失败'); }
     };
 
     const updateRiskDictItem = async (id, level_name, level_value) => {
@@ -198,7 +211,7 @@ export default function KnowledgeManager() {
                 body: JSON.stringify({ level_name, level_value })
             });
             if (res.ok) fetchRiskDict();
-        } catch (e) { alert('更新字典失败'); }
+        } catch (e) { flash('更新字典失败'); }
     };
 
     const calculateWeight = (lId, cId) => {
@@ -217,6 +230,9 @@ export default function KnowledgeManager() {
 
     return (
         <div className="h-full flex flex-col bg-white">
+            {toast && (
+                <div className="mx-6 mt-3 px-4 py-2 rounded-lg bg-amber-50 text-amber-800 text-sm font-bold border border-amber-100">{toast}</div>
+            )}
             {/* 头部标题区 */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-indigo-50/30">
                 <div className="flex items-center space-x-3">
@@ -635,6 +651,14 @@ export default function KnowledgeManager() {
                     </div>
                 </div>
             )}
+            <ConfirmDialog
+                open={!!confirmDel}
+                title="删除知识条目"
+                message="确定要删除此项吗？此操作不可撤销且将删除其下属关联内容。"
+                danger
+                onCancel={() => setConfirmDel(null)}
+                onConfirm={() => confirmDel && doDelete(confirmDel.type, confirmDel.id)}
+            />
         </div>
     );
 }

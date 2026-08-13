@@ -9,24 +9,39 @@ import KnowledgeManager from './components/Admin/KnowledgeManager';
 import PersonnelManager from './components/Admin/PersonnelManager';
 import ReportsDashboard from './components/Admin/ReportsDashboard';
 import AnalyticsDashboard from './components/Admin/AnalyticsDashboard';
+import AuditDashboard from './components/Admin/AuditDashboard';
 import {
-  Fingerprint, ClipboardList, Zap, Database, ShieldCheck, BookOpen,
-  LogOut, Lock, Users, LayoutDashboard, BarChart3, UserCog, Brain
+  Fingerprint, ClipboardList, Zap, Database, BookOpen,
+  LogOut, Users, LayoutDashboard, BarChart3, UserCog, Brain, Trophy, ScrollText
 } from 'lucide-react';
-import { isAdminAuthed, loginAdmin, clearAdminAuth } from './lib/adminAuth';
-import { getLoggedInUser, loginUser, clearLoggedInUser } from './lib/userAuth';
+import { loginAdminAccount, loginAdminPin, restoreAdminSession } from './lib/adminAuth';
+import { getLoggedInUser, loginUser, logoutUser, isStaffUser } from './lib/userAuth';
+import { SafeSpotMark, SafeSpotWordmark } from './components/Brand/SafeSpotMark';
+import AppDeclaration from './components/Brand/AppDeclaration';
+import ModalShell from './components/Brand/ModalShell';
+import LabProducer from './components/Brand/LabProducer';
 
-function readHashMode() {
-  const h = (window.location.hash || '#/play').replace(/^#\/?/, '');
-  if (h.startsWith('admin')) return 'admin';
-  return 'play';
+const ADMIN_TABS = ['annotation', 'exams', 'knowledge', 'personnel', 'reports', 'analytics', 'inspector', 'audit'];
+
+function parseHash() {
+  const raw = (window.location.hash || '#/play').replace(/^#\/?/, '');
+  const [path, qs] = raw.split('?');
+  const params = new URLSearchParams(qs || window.location.search || '');
+  const parts = path.split('/').filter(Boolean);
+  const mode = parts[0] === 'admin' ? 'admin' : 'play';
+  const tab = ADMIN_TABS.includes(parts[1]) ? parts[1] : 'annotation';
+  const kiosk = params.get('kiosk') === '1';
+  return { mode, tab, kiosk };
 }
 
 function App() {
-  const [mode, setMode] = useState(readHashMode); // play | admin
-  const [adminUnlocked, setAdminUnlocked] = useState(() => isAdminAuthed());
-  const [adminTab, setAdminTab] = useState('annotation');
-  const [pinInput, setPinInput] = useState('');
+  const [mode, setMode] = useState(() => parseHash().mode);
+  const [adminUnlocked, setAdminUnlocked] = useState(() => isStaffUser(getLoggedInUser()));
+  const [adminTab, setAdminTab] = useState(() => parseHash().tab);
+  const [kiosk, setKiosk] = useState(() => parseHash().kiosk);
+  const [showBoard, setShowBoard] = useState(false);
+  const [adminForm, setAdminForm] = useState({ username: '', password: '', pin: '' });
+  const [adminUsePin, setAdminUsePin] = useState(false);
   const [pinError, setPinError] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
 
@@ -39,12 +54,18 @@ function App() {
 
   const [activeExamId, setActiveExamId] = useState(null);
   const [autoStartExamId, setAutoStartExamId] = useState(null);
+  const [editExamId, setEditExamId] = useState(null);
   const [scoreRefreshKey, setScoreRefreshKey] = useState(0);
   const [showCopyright, setShowCopyright] = useState(false);
   const [health, setHealth] = useState(null);
 
   useEffect(() => {
-    const onHash = () => setMode(readHashMode());
+    const onHash = () => {
+      const h = parseHash();
+      setMode(h.mode);
+      setAdminTab(h.tab);
+      setKiosk(h.kiosk);
+    };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -54,12 +75,34 @@ function App() {
       .then(r => r.json())
       .then(setHealth)
       .catch(() => setHealth({ status: 'error' }));
+    restoreAdminSession()
+      .then((user) => {
+        if (user) {
+          setCurrentUser(user);
+          setAdminUnlocked(true);
+        } else {
+          setAdminUnlocked(false);
+        }
+      })
+      .catch(() => setAdminUnlocked(false));
   }, []);
 
-  const navigate = useCallback((nextMode) => {
-    window.location.hash = nextMode === 'admin' ? '#/admin' : '#/play';
-    setMode(nextMode);
-  }, []);
+  const navigate = useCallback((nextMode, tab) => {
+    if (nextMode === 'admin') {
+      const t = ADMIN_TABS.includes(tab) ? tab : (adminTab || 'annotation');
+      window.location.hash = `#/admin/${t}`;
+      setAdminTab(t);
+      setMode('admin');
+    } else {
+      window.location.hash = kiosk ? '#/play?kiosk=1' : '#/play';
+      setMode('play');
+    }
+  }, [adminTab, kiosk]);
+
+  const goAdminTab = (tab) => {
+    setAdminTab(tab);
+    window.location.hash = `#/admin/${tab}`;
+  };
 
   const jumpToTest = (examId) => {
     setAutoStartExamId(examId);
@@ -71,18 +114,22 @@ function App() {
     setPinLoading(true);
     setPinError('');
     try {
-      await loginAdmin(pinInput);
+      const user = adminUsePin
+        ? await loginAdminPin(adminForm.pin)
+        : await loginAdminAccount(adminForm.username.trim(), adminForm.password);
+      setCurrentUser(user);
       setAdminUnlocked(true);
-      setPinInput('');
+      setAdminForm({ username: '', password: '', pin: '' });
     } catch (err) {
-      setPinError(err.message || '口令错误');
+      setPinError(err.message || '登录失败');
     } finally {
       setPinLoading(false);
     }
   };
 
-  const handleAdminLogout = () => {
-    clearAdminAuth();
+  const handleAdminLogout = async () => {
+    await logoutUser();
+    setCurrentUser(null);
     setAdminUnlocked(false);
     navigate('play');
   };
@@ -103,9 +150,10 @@ function App() {
     }
   };
 
-  const handleUserLogout = () => {
-    clearLoggedInUser();
+  const handleUserLogout = async () => {
+    await logoutUser();
     setCurrentUser(null);
+    setAdminUnlocked(false);
   };
 
   const backendOk = health?.status === 'ok' || health?.status === 'degraded';
@@ -116,32 +164,59 @@ function App() {
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 font-sans">
         <form onSubmit={handleAdminLogin} className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 space-y-5">
           <div className="text-center">
-            <div className="w-14 h-14 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <Lock className="w-7 h-7 text-indigo-600" />
+            <div className="flex justify-center mb-3">
+              <SafeSpotMark size={56} />
             </div>
             <h1 className="text-xl font-black text-gray-900">SafeSpot 管理端</h1>
             <p className="text-sm text-gray-500 mt-1">请输入管理口令后继续</p>
           </div>
-          <input
-            type="password"
-            value={pinInput}
-            onChange={e => setPinInput(e.target.value)}
-            placeholder="管理口令"
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
-            autoFocus
-          />
+          {!adminUsePin ? (
+            <>
+              <input
+                value={adminForm.username}
+                onChange={e => setAdminForm({ ...adminForm, username: e.target.value })}
+                placeholder="管理员 / 培训师账号"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                autoFocus
+              />
+              <input
+                type="password"
+                value={adminForm.password}
+                onChange={e => setAdminForm({ ...adminForm, password: e.target.value })}
+                placeholder="密码"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </>
+          ) : (
+            <input
+              type="password"
+              value={adminForm.pin}
+              onChange={e => setAdminForm({ ...adminForm, pin: e.target.value })}
+              placeholder="管理口令（开发引导）"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+              autoFocus
+            />
+          )}
           {pinError && <p className="text-sm text-red-500">{pinError}</p>}
           <button
             type="submit"
-            disabled={pinLoading || !pinInput}
+            disabled={pinLoading || (!adminUsePin ? !adminForm.username || !adminForm.password : !adminForm.pin)}
             className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl"
           >
             {pinLoading ? '验证中…' : '进入管理端'}
           </button>
+          <button
+            type="button"
+            onClick={() => { setAdminUsePin(!adminUsePin); setPinError(''); }}
+            className="w-full text-sm text-gray-500 hover:text-indigo-600"
+          >
+            {adminUsePin ? '使用账号密码登录' : '改用开发口令'}
+          </button>
           <button type="button" onClick={() => navigate('play')} className="w-full text-sm text-gray-500 hover:text-indigo-600">
             返回学员考核大厅
           </button>
-          <p className="text-[10px] text-center text-gray-400">默认口令见 README（可用环境变量 ADMIN_PIN 修改）</p>
+          <p className="text-[10px] text-center text-gray-400">开发账号 admin / admin123 · 生产请改密</p>
+          <LabProducer compact />
         </form>
       </div>
     );
@@ -153,16 +228,14 @@ function App() {
         <div className="w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center min-w-0">
-              <div
-                className="flex-shrink-0 flex items-center cursor-pointer hover:opacity-80 transition"
+              <button
+                type="button"
+                className="flex-shrink-0 flex items-center cursor-pointer hover:opacity-80 transition bg-transparent p-0 border-0"
                 onClick={() => setShowCopyright(true)}
-                title="点击查看版权信息"
+                title="应用声明"
               >
-                <ShieldCheck className="w-8 h-8 mr-2 text-indigo-600" />
-                <span className="text-2xl font-black text-indigo-600 tracking-tighter">
-                  SafeSpot<span className="text-gray-900">.</span>
-                </span>
-              </div>
+                <SafeSpotWordmark size={34} />
+              </button>
 
               {mode === 'play' ? (
                 <div className="hidden sm:ml-8 sm:flex sm:items-center sm:space-x-2">
@@ -172,13 +245,14 @@ function App() {
                 </div>
               ) : (
                 <div className="hidden sm:ml-6 sm:flex sm:space-x-2 overflow-x-auto">
-                  <AdminNavBtn active={adminTab === 'annotation'} onClick={() => setAdminTab('annotation')} icon={Fingerprint} label="图库标注" />
-                  <AdminNavBtn active={adminTab === 'exams'} onClick={() => setAdminTab('exams')} icon={ClipboardList} label="组卷中心" />
-                  <AdminNavBtn active={adminTab === 'knowledge'} onClick={() => setAdminTab('knowledge')} icon={BookOpen} label="知识与风险" />
-                  <AdminNavBtn active={adminTab === 'personnel'} onClick={() => setAdminTab('personnel')} icon={UserCog} label="人员组织" />
-                  <AdminNavBtn active={adminTab === 'reports'} onClick={() => setAdminTab('reports')} icon={BarChart3} label="成绩报表" />
-                  <AdminNavBtn active={adminTab === 'analytics'} onClick={() => setAdminTab('analytics')} icon={Brain} label="学情分析" />
-                  <AdminNavBtn active={adminTab === 'inspector'} onClick={() => setAdminTab('inspector')} icon={Database} label="数据巡检" />
+                  <AdminNavBtn active={adminTab === 'annotation'} onClick={() => goAdminTab('annotation')} icon={Fingerprint} label="图库标注" />
+                  <AdminNavBtn active={adminTab === 'exams'} onClick={() => goAdminTab('exams')} icon={ClipboardList} label="组卷中心" />
+                  <AdminNavBtn active={adminTab === 'knowledge'} onClick={() => goAdminTab('knowledge')} icon={BookOpen} label="知识与风险" />
+                  <AdminNavBtn active={adminTab === 'personnel'} onClick={() => goAdminTab('personnel')} icon={UserCog} label="人员组织" />
+                  <AdminNavBtn active={adminTab === 'reports'} onClick={() => goAdminTab('reports')} icon={BarChart3} label="成绩报表" />
+                  <AdminNavBtn active={adminTab === 'analytics'} onClick={() => goAdminTab('analytics')} icon={Brain} label="学情分析" />
+                  <AdminNavBtn active={adminTab === 'inspector'} onClick={() => goAdminTab('inspector')} icon={Database} label="数据巡检" />
+                  <AdminNavBtn active={adminTab === 'audit'} onClick={() => goAdminTab('audit')} icon={ScrollText} label="操作审计" />
                 </div>
               )}
             </div>
@@ -220,14 +294,14 @@ function App() {
                 )
               )}
 
-              {mode === 'play' ? (
+              {mode === 'play' && !kiosk ? (
                 <button
                   onClick={() => navigate('admin')}
                   className="flex items-center px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-gray-600 hover:bg-gray-100 border border-gray-200"
                 >
                   <LayoutDashboard className="w-4 h-4 mr-1.5" /> 管理端
                 </button>
-              ) : (
+              ) : mode === 'admin' ? (
                 <>
                   <button
                     onClick={() => navigate('play')}
@@ -243,20 +317,21 @@ function App() {
                     <LogOut className="w-4 h-4" />
                   </button>
                 </>
-              )}
+              ) : null}
             </div>
           </div>
 
           {/* 移动端管理 Tab */}
           {mode === 'admin' && (
             <div className="sm:hidden flex gap-1 pb-2 overflow-x-auto">
-              <AdminNavBtn active={adminTab === 'annotation'} onClick={() => setAdminTab('annotation')} icon={Fingerprint} label="标注" compact />
-              <AdminNavBtn active={adminTab === 'exams'} onClick={() => setAdminTab('exams')} icon={ClipboardList} label="组卷" compact />
-              <AdminNavBtn active={adminTab === 'knowledge'} onClick={() => setAdminTab('knowledge')} icon={BookOpen} label="知识" compact />
-              <AdminNavBtn active={adminTab === 'personnel'} onClick={() => setAdminTab('personnel')} icon={UserCog} label="人员" compact />
-              <AdminNavBtn active={adminTab === 'reports'} onClick={() => setAdminTab('reports')} icon={BarChart3} label="报表" compact />
-              <AdminNavBtn active={adminTab === 'analytics'} onClick={() => setAdminTab('analytics')} icon={Brain} label="学情" compact />
-              <AdminNavBtn active={adminTab === 'inspector'} onClick={() => setAdminTab('inspector')} icon={Database} label="巡检" compact />
+              <AdminNavBtn active={adminTab === 'annotation'} onClick={() => goAdminTab('annotation')} icon={Fingerprint} label="标注" compact />
+              <AdminNavBtn active={adminTab === 'exams'} onClick={() => goAdminTab('exams')} icon={ClipboardList} label="组卷" compact />
+              <AdminNavBtn active={adminTab === 'knowledge'} onClick={() => goAdminTab('knowledge')} icon={BookOpen} label="知识" compact />
+              <AdminNavBtn active={adminTab === 'personnel'} onClick={() => goAdminTab('personnel')} icon={UserCog} label="人员" compact />
+              <AdminNavBtn active={adminTab === 'reports'} onClick={() => goAdminTab('reports')} icon={BarChart3} label="报表" compact />
+              <AdminNavBtn active={adminTab === 'analytics'} onClick={() => goAdminTab('analytics')} icon={Brain} label="学情" compact />
+              <AdminNavBtn active={adminTab === 'inspector'} onClick={() => goAdminTab('inspector')} icon={Database} label="巡检" compact />
+              <AdminNavBtn active={adminTab === 'audit'} onClick={() => goAdminTab('audit')} icon={ScrollText} label="审计" compact />
             </div>
           )}
         </div>
@@ -279,6 +354,26 @@ function App() {
             <div className="w-[350px] shadow-2xl rounded-xl overflow-hidden border border-gray-800 bg-gray-900 flex-shrink-0 hidden lg:block">
               <ScoreKeeper activeExamId={activeExamId} refreshKey={scoreRefreshKey} />
             </div>
+            <button
+              type="button"
+              onClick={() => setShowBoard(true)}
+              className="lg:hidden fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-amber-500 text-white shadow-xl flex items-center justify-center"
+              title="龙虎榜"
+            >
+              <Trophy className="w-6 h-6" />
+            </button>
+            {showBoard && (
+              <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setShowBoard(false)}>
+                <div className="absolute right-0 top-0 h-full w-[min(100%,380px)] bg-gray-900 shadow-2xl" onClick={e => e.stopPropagation()}>
+                  <div className="p-3 flex justify-end">
+                    <button type="button" className="text-white text-sm" onClick={() => setShowBoard(false)}>关闭</button>
+                  </div>
+                  <div className="h-[calc(100%-48px)]">
+                    <ScoreKeeper activeExamId={activeExamId} refreshKey={scoreRefreshKey} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -291,10 +386,10 @@ function App() {
         {mode === 'admin' && adminTab === 'exams' && (
           <div className="w-full flex-1 flex bg-white shadow-xl rounded-xl overflow-hidden border border-gray-200 min-h-0">
             <div className="flex-1 border-r border-gray-200 min-w-0">
-              <TestAssembler />
+              <TestAssembler editExamId={editExamId} onEditConsumed={() => setEditExamId(null)} />
             </div>
             <div className="w-[350px] bg-gray-50 flex-shrink-0">
-              <ExamManager onEnterExam={jumpToTest} />
+              <ExamManager onEnterExam={jumpToTest} onEditExam={setEditExamId} />
             </div>
           </div>
         )}
@@ -328,96 +423,63 @@ function App() {
             <DBInspector />
           </div>
         )}
+
+        {mode === 'admin' && adminTab === 'audit' && (
+          <div className="w-full flex-1 shadow-2xl rounded-xl overflow-hidden border border-gray-200 bg-white min-h-0">
+            <AuditDashboard />
+          </div>
+        )}
       </main>
 
-      {/* 学员登录弹窗 */}
-      {showUserLogin && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <form onSubmit={handleUserLogin} className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 space-y-4 relative">
-            <button
-              type="button"
-              onClick={() => { setShowUserLogin(false); setUserLoginError(''); }}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700"
-            >
-              ✕
-            </button>
-            <div className="text-center mb-2">
-              <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <Users className="w-6 h-6 text-indigo-600" />
-              </div>
-              <h2 className="text-xl font-black text-gray-900">学员登录</h2>
-              <p className="text-xs text-gray-500 mt-1">使用「人员组织」中创建的账号密码</p>
-            </div>
-            <input
-              required
-              value={userLoginForm.username}
-              onChange={e => setUserLoginForm({ ...userLoginForm, username: e.target.value })}
-              placeholder="用户名"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
-              autoFocus
-            />
-            <input
-              required
-              type="password"
-              value={userLoginForm.password}
-              onChange={e => setUserLoginForm({ ...userLoginForm, password: e.target.value })}
-              placeholder="密码"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            {userLoginError && <p className="text-sm text-red-500">{userLoginError}</p>}
-            <button
-              type="submit"
-              disabled={userLoginLoading}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl"
-            >
-              {userLoginLoading ? '登录中…' : '登录'}
-            </button>
-            <p className="text-[10px] text-center text-gray-400">
-              演示账号 admin / admin123 · 也可在身份步骤访客手填
-            </p>
-          </form>
-        </div>
-      )}
-
-      {showCopyright && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md">
-          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-md w-full mx-4 flex flex-col">
-            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 text-center relative border-b-4 border-indigo-400">
-              <button
-                onClick={() => setShowCopyright(false)}
-                className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/10 hover:bg-black/20 rounded-full w-8 h-8 flex items-center justify-center"
-              >
-                ✕
-              </button>
-              <div className="w-20 h-20 bg-white/10 backdrop-blur-sm flex items-center justify-center rounded-2xl mx-auto mb-4 border border-white/20">
-                <ShieldCheck className="w-12 h-12 text-white" />
-              </div>
-              <h3 className="text-3xl font-black text-white tracking-tight mb-2">SafeSpot</h3>
-              <p className="text-indigo-100 text-sm font-medium">基于「找不同」机制的交互式安全合规平台</p>
-              <p className="text-indigo-200/80 text-xs mt-2">工程名 SafeEYE · 产品品牌 SafeSpot</p>
-            </div>
-            <div className="p-8 pb-6 text-sm text-gray-600 space-y-4">
-              <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50">
-                <h4 className="font-bold text-gray-900 mb-2 flex items-center">
-                  <Zap className="w-4 h-4 mr-2 text-indigo-500" /> 视觉交互培训
-                </h4>
-                <p className="leading-relaxed">通过实景重构、知识关联与找茬考核，让安全风险识别成为可训练的直觉记忆。</p>
-              </div>
-              <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex items-start">
-                <Database className="w-5 h-5 mr-3 text-amber-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-bold text-amber-900 mb-1">本地优先</h4>
-                  <p className="text-amber-800/80 leading-relaxed">SQLite 本地存储，图片与成绩不出厂，适合敏感场景离线部署。</p>
-                </div>
-              </div>
-            </div>
-            <div className="px-8 pb-8 text-center text-xs text-gray-400 border-t border-gray-100 pt-6">
-              <p>Copyright © {new Date().getFullYear()} SafeSpot Engineering.</p>
-              <p className="font-bold text-gray-700 text-sm tracking-widest mt-2">鹿溪联合创新实验室</p>
-            </div>
+      <ModalShell
+        open={showUserLogin}
+        onClose={() => { setShowUserLogin(false); setUserLoginError(''); }}
+        as="form"
+        onSubmit={handleUserLogin}
+        labelledBy="user-login-title"
+      >
+        <div className="text-center mb-2">
+          <div className="flex justify-center mb-3">
+            <SafeSpotMark size={48} />
           </div>
+          <h2 id="user-login-title" className="text-xl font-black text-gray-900">学员登录</h2>
+          <p className="text-xs text-gray-500 mt-1">使用「人员组织」中创建的账号密码</p>
         </div>
-      )}
+        <input
+          required
+          value={userLoginForm.username}
+          onChange={e => setUserLoginForm({ ...userLoginForm, username: e.target.value })}
+          placeholder="用户名"
+          className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+          autoFocus
+        />
+        <input
+          required
+          type="password"
+          value={userLoginForm.password}
+          onChange={e => setUserLoginForm({ ...userLoginForm, password: e.target.value })}
+          placeholder="密码"
+          className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        {userLoginError && <p className="text-sm text-red-500">{userLoginError}</p>}
+        <button
+          type="submit"
+          disabled={userLoginLoading}
+          className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl"
+        >
+          {userLoginLoading ? '登录中…' : '登录'}
+        </button>
+        <p className="text-[10px] text-center text-gray-400">
+          演示账号 admin / admin123 · 也可在身份步骤访客手填
+        </p>
+        <LabProducer compact />
+      </ModalShell>
+
+      <AppDeclaration
+        open={showCopyright}
+        onClose={() => setShowCopyright(false)}
+        version={health?.version}
+      />
     </div>
   );
 }

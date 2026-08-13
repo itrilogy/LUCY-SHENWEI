@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Database, Search, Trash2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import ConfirmDialog from '../ConfirmDialog';
 
 export default function DBInspector() {
     const [selectedTable, setSelectedTable] = useState('assets');
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [cleanupStatus, setCleanupStatus] = useState(null);
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [hygieneConfirm, setHygieneConfirm] = useState(null);
+    const [backups, setBackups] = useState([]);
+    const [opsMsg, setOpsMsg] = useState('');
 
     const tables = [
         'assets', 'annotations', 'exams', 'exam_items', 'records',
         'knowledge_scenes', 'knowledge_categories', 'knowledge_items',
-        'risk_dictionary', '_legacy_knowledge'
+        'risk_dictionary', '_legacy_knowledge',
+        'organizations', 'departments', 'users', 'user_profiles',
+        'attempt_stats', 'knowledge_error_facts', 'exam_attempts', 'audit_log'
     ];
 
     const fetchData = async () => {
@@ -31,15 +38,25 @@ export default function DBInspector() {
         }
     };
 
+    const refreshBackups = () => {
+        fetch('/api/admin/backup').then((r) => r.ok ? r.json() : []).then(setBackups).catch(() => {});
+    };
+
+    useEffect(() => { refreshBackups(); }, []);
+
     const handleCleanup = async () => {
-        if (!window.confirm('此操作将永久删除服务器上冗余的 JSON 数据文件，请确保 SQLite 数据库内容已通过验证。继续？')) return;
+        setConfirmOpen(true);
+    };
+
+    const doCleanup = async () => {
+        setConfirmOpen(false);
         try {
             const res = await fetch('/api/admin/cleanup', { method: 'POST' });
             const result = await res.json();
             setCleanupStatus(result.message);
             setTimeout(() => setCleanupStatus(null), 5000);
         } catch (e) {
-            alert('清理失败');
+            setCleanupStatus('清理失败');
         }
     };
 
@@ -77,6 +94,54 @@ export default function DBInspector() {
                         清理冗余 JSON
                     </button>
                 </div>
+            </div>
+
+            <div className="px-6 pt-4 flex flex-wrap gap-3 items-center text-sm">
+                <button
+                    type="button"
+                    onClick={async () => {
+                        const r = await fetch('/api/admin/backup', { method: 'POST' });
+                        const d = await r.json();
+                        setOpsMsg(r.ok ? `已生成 ${d.fileName}` : (d.error || '备份失败'));
+                        refreshBackups();
+                    }}
+                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-bold"
+                >
+                    备份库+图片
+                </button>
+                <button
+                    type="button"
+                    onClick={async () => {
+                        const prev = await fetch('/api/admin/hygiene').then((r) => r.json());
+                        const nA = prev.duplicateAssets?.length || 0;
+                        const nR = prev.orphanRecords?.length || 0;
+                        if (!nA && !nR && !prev.orphanAttemptStats && !prev.orphanFacts) {
+                            setOpsMsg('没有需要清理的重复图或失效成绩/学情');
+                            return;
+                        }
+                        setHygieneConfirm({ nA, nR, stats: prev.orphanAttemptStats, facts: prev.orphanFacts });
+                    }}
+                    className="px-3 py-1.5 bg-amber-600 text-white rounded-lg font-bold"
+                >
+                    清理重复图与失效学情
+                </button>
+                <label className="px-3 py-1.5 border rounded-lg font-bold cursor-pointer">
+                    导入题库 zip
+                    <input type="file" accept=".zip" className="hidden" onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        const fd = new FormData();
+                        fd.append('file', f);
+                        const r = await fetch('/api/admin/bank/import', { method: 'POST', body: fd });
+                        const d = await r.json();
+                        setOpsMsg(r.ok ? `导入成功：卷 ${d.exams} / 图 ${d.assets}` : (d.error || '导入失败'));
+                        e.target.value = '';
+                    }} />
+                </label>
+                {backups.slice(0, 3).map((b) => (
+                    <a key={b.fileName} className="text-xs text-indigo-600 underline" href={`/api/admin/backup/download/${encodeURIComponent(b.fileName)}`}>{b.fileName}</a>
+                ))}
+                {opsMsg && <span className="text-xs text-gray-500">{opsMsg}</span>}
             </div>
 
             {/* Status Message */}
@@ -124,6 +189,32 @@ export default function DBInspector() {
                     仅显示前 100 条记录记录。如有更多需求请通过后端日志查询。
                 </p>
             </div>
+            <ConfirmDialog
+                open={confirmOpen}
+                title="清理冗余 JSON"
+                message="此操作将永久删除服务器上冗余的 JSON 数据文件，请确保 SQLite 数据库内容已通过验证。"
+                danger
+                onCancel={() => setConfirmOpen(false)}
+                onConfirm={doCleanup}
+            />
+            <ConfirmDialog
+                open={!!hygieneConfirm}
+                title="清理重复图与失效学情"
+                message={hygieneConfirm
+                    ? `将删除：重复未标注图 ${hygieneConfirm.nA} 张、已删试卷遗留成绩 ${hygieneConfirm.nR} 条，并清无主学情物化。此操作不可撤销。`
+                    : ''}
+                danger
+                onCancel={() => setHygieneConfirm(null)}
+                onConfirm={async () => {
+                    setHygieneConfirm(null);
+                    const r = await fetch('/api/admin/hygiene', { method: 'POST' });
+                    const d = await r.json();
+                    setOpsMsg(r.ok
+                        ? `已清理重复图 ${d.assets?.count || 0}、失效成绩 ${d.scores?.records || 0}`
+                        : (d.error || '清理失败'));
+                    fetchData();
+                }}
+            />
         </div>
     );
 }

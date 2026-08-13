@@ -128,9 +128,10 @@ export default function AnalyticsDashboard() {
     const [draftExamId, setDraftExamId] = useState('');
     const [draftDeptId, setDraftDeptId] = useState('');
     const [includeChildren, setIncludeChildren] = useState(true);
+    const [rangeDays, setRangeDays] = useState(0);
     const [dirty, setDirty] = useState(false);
 
-    const [applied, setApplied] = useState({ examId: '', departmentId: '', includeChildren: true });
+    const [applied, setApplied] = useState({ examId: '', departmentId: '', includeChildren: true, rangeDays: 0 });
     const [tab, setTab] = useState('overview');
 
     const deptOptions = useMemo(() => buildDeptTreeOptions(departments), [departments]);
@@ -144,14 +145,15 @@ export default function AnalyticsDashboard() {
             })
             .catch(() => {});
         // 首屏全库分析
-        runAnalysis({ examId: '', departmentId: '', includeChildren: true });
+        runAnalysis({ examId: '', departmentId: '', includeChildren: true, rangeDays: 0 });
     }, []);
 
     const runAnalysis = async (override) => {
         const next = override || {
             examId: draftExamId,
             departmentId: draftDeptId,
-            includeChildren
+            includeChildren,
+            rangeDays
         };
         setLoading(true);
         setError('');
@@ -160,6 +162,7 @@ export default function AnalyticsDashboard() {
             if (next.examId) qs.set('examId', next.examId);
             if (next.departmentId) qs.set('departmentId', next.departmentId);
             qs.set('includeChildren', next.includeChildren ? '1' : '0');
+            if (next.rangeDays > 0) qs.set('from', String(Date.now() - next.rangeDays * 86400000));
             const res = await fetch(`/api/admin/analytics/overview?${qs}`);
             if (!res.ok) throw new Error('加载学情失败');
             const ov = await res.json();
@@ -182,8 +185,9 @@ export default function AnalyticsDashboard() {
         setDraftExamId('');
         setDraftDeptId('');
         setIncludeChildren(true);
+        setRangeDays(0);
         setDirty(true);
-        runAnalysis({ examId: '', departmentId: '', includeChildren: true });
+        runAnalysis({ examId: '', departmentId: '', includeChildren: true, rangeDays: 0 });
     };
 
     const s = data?.summary || {};
@@ -254,6 +258,20 @@ export default function AnalyticsDashboard() {
                             />
                             包含下级部门
                         </label>
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-bold text-gray-600 mb-1.5 block">时间窗</label>
+                        <select
+                            value={rangeDays}
+                            onChange={e => onDraftChange(() => setRangeDays(Number(e.target.value)))}
+                            className="w-full border rounded-xl px-3 py-2 text-sm bg-white"
+                        >
+                            <option value={0}>全部时间</option>
+                            <option value={7}>近 7 天</option>
+                            <option value={30}>近 30 天</option>
+                            <option value={90}>近 90 天</option>
+                        </select>
                     </div>
 
                     <div className="bg-white border rounded-xl p-3 text-xs text-gray-600 space-y-1">

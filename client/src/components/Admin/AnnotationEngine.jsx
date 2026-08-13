@@ -38,6 +38,50 @@ export default function AnnotationEngine() {
     };
 
     const [isDirty, setIsDirty] = useState(false);
+    const [view, setView] = useState({ scale: 1, x: 0, y: 0 });
+    const spaceRef = useRef(false);
+    const panRef = useRef(null);
+    const undoRef = useRef([]);
+    const redoRef = useRef([]);
+    const annosRef = useRef([]);
+    useEffect(() => { annosRef.current = annotations; }, [annotations]);
+
+    const pushUndo = () => {
+        undoRef.current = [...undoRef.current.slice(-40), JSON.parse(JSON.stringify(annosRef.current))];
+        redoRef.current = [];
+    };
+    const undo = () => {
+        if (!undoRef.current.length) return;
+        redoRef.current = [...redoRef.current, JSON.parse(JSON.stringify(annosRef.current))];
+        const prev = undoRef.current.pop();
+        setAnnotations(prev);
+        setIsDirty(true);
+    };
+    const redo = () => {
+        if (!redoRef.current.length) return;
+        undoRef.current = [...undoRef.current, JSON.parse(JSON.stringify(annosRef.current))];
+        const next = redoRef.current.pop();
+        setAnnotations(next);
+        setIsDirty(true);
+    };
+
+    useEffect(() => {
+        const down = (e) => {
+            if (e.code === 'Space') spaceRef.current = true;
+            if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z')) {
+                e.preventDefault();
+                if (e.shiftKey) redo();
+                else undo();
+            }
+        };
+        const up = (e) => { if (e.code === 'Space') spaceRef.current = false; };
+        window.addEventListener('keydown', down);
+        window.addEventListener('keyup', up);
+        return () => {
+            window.removeEventListener('keydown', down);
+            window.removeEventListener('keyup', up);
+        };
+    }, []);
 
     const handleUpload = async (e) => {
         const list = e.target.files ? Array.from(e.target.files) : [];
@@ -144,13 +188,29 @@ export default function AnnotationEngine() {
         if (data.meta.sceneId) setSelectedGlobalScene(data.meta.sceneId);
     };
 
-    const selectImage = (img) => {
-        if (isDirty && activeImage && activeImage.name !== img.name) {
-            if (!window.confirm('当前标注尚未保存，切换图片将丢失未保存修改。继续？')) return;
-        }
+    const applySelectImage = (img) => {
         setActiveImage(img);
         loadMeta(img.name);
         setIsDirty(false);
+        setView({ scale: 1, x: 0, y: 0 });
+        undoRef.current = [];
+        redoRef.current = [];
+    };
+
+    const selectImage = (img) => {
+        if (isDirty && activeImage && activeImage.name !== img.name) {
+            setConfirmBox({
+                show: true,
+                title: '未保存标注',
+                message: '当前标注尚未保存，切换图片将丢失未保存修改。继续？',
+                onConfirm: () => {
+                    setConfirmBox({ show: false });
+                    applySelectImage(img);
+                }
+            });
+            return;
+        }
+        applySelectImage(img);
     };
 
     const getRatioPos = (e) => {
@@ -167,7 +227,12 @@ export default function AnnotationEngine() {
 
     const handleMouseDown = (e) => {
         if (!activeImage || showModal) return;
-        if (e.button !== 0) return; // 仅左键
+        if (e.button === 1 || spaceRef.current || e.altKey) {
+            e.preventDefault();
+            panRef.current = { x: e.clientX, y: e.clientY, ox: view.x, oy: view.y };
+            return;
+        }
+        if (e.button !== 0) return;
 
         e.preventDefault();
         const pos = getRatioPos(e);
@@ -179,6 +244,12 @@ export default function AnnotationEngine() {
     };
 
     const handleMouseMove = (e) => {
+        if (panRef.current) {
+            const dx = e.clientX - panRef.current.x;
+            const dy = e.clientY - panRef.current.y;
+            setView((v) => ({ ...v, x: panRef.current.ox + dx, y: panRef.current.oy + dy }));
+            return;
+        }
         const pos = getRatioPos(e);
         if (!pos) return;
 
@@ -270,17 +341,20 @@ export default function AnnotationEngine() {
     };
 
     const handleMouseUp = (e) => {
+        if (panRef.current) { panRef.current = null; return; }
         if (resizingId) {
+            pushUndo();
             setResizingId(null);
             setResizeStart(null);
             setIsDirty(true);
-            return; // 完成调整大小，不触发画框结算
+            return;
         }
         if (movingId) {
+            pushUndo();
             setMovingId(null);
             setMoveStart(null);
             setIsDirty(true);
-            return; // 结束移动
+            return;
         }
 
         if (!isDrawing) return;
@@ -351,6 +425,24 @@ export default function AnnotationEngine() {
                         setAnnotations([]);
                         fetchImages();
                         showToast('案例已永久销毁');
+                    } else if (res.status === 409) {
+                        const err = await res.json().catch(() => ({}));
+                        const names = (err.exams || []).map((e) => e.exam_name).join('、');
+                        setConfirmBox({
+                            show: true,
+                            title: '图已被已发布试卷引用',
+                            message: `${err.error || '无法删除'}\n${names}\n\n仍要强制删除吗？相关试卷题目会变少。`,
+                            onConfirm: async () => {
+                                setConfirmBox({ show: false });
+                                const r2 = await fetch(`/api/assets/${activeImage.name}?force=1`, { method: 'DELETE' });
+                                if (r2.ok) {
+                                    setActiveImage(null);
+                                    setAnnotations([]);
+                                    fetchImages();
+                                    showToast('已强制删除');
+                                }
+                            }
+                        });
                     } else {
                         showToast('删除失败，服务器异常', 'error');
                     }
@@ -558,7 +650,13 @@ export default function AnnotationEngine() {
                         {/* 场景下拉栏已被移除，支持纯碎的画框打点 */}
                     </div>
                     {activeImage && (
-                        <div className="flex space-x-3">
+                        <div className="flex space-x-3 items-center">
+                            <button type="button" onClick={undo} className="text-xs font-bold px-2 py-1 rounded bg-gray-100 text-gray-600" title="撤销 Ctrl+Z">撤销</button>
+                            <button type="button" onClick={redo} className="text-xs font-bold px-2 py-1 rounded bg-gray-100 text-gray-600" title="重做">重做</button>
+                            <button type="button" onClick={() => setView((v) => ({ ...v, scale: Math.min(6, v.scale * 1.2) }))} className="text-xs font-bold px-2 py-1 rounded bg-gray-100">+</button>
+                            <button type="button" onClick={() => setView((v) => ({ ...v, scale: Math.max(0.4, v.scale / 1.2) }))} className="text-xs font-bold px-2 py-1 rounded bg-gray-100">−</button>
+                            <button type="button" onClick={() => setView({ scale: 1, x: 0, y: 0 })} className="text-xs font-bold px-2 py-1 rounded bg-gray-100">复位</button>
+                            <span className="text-[10px] text-gray-400">滚轮缩放 · Alt/空格拖移</span>
                             <button
                                 onClick={deleteAsset}
                                 className="bg-red-50 text-red-600 px-4 py-2 rounded shadow-sm hover:bg-red-100 flex items-center text-sm font-semibold transition border border-red-200"
@@ -586,8 +684,23 @@ export default function AnnotationEngine() {
                             从左侧选择需要隐患打点的工程快照...
                         </div>
                     ) : (
-                        <div className="relative flex items-center justify-center w-full h-full overflow-hidden">
-                            <div className="relative inline-block shadow-2xl" style={{ maxWidth: '100%', maxHeight: '100%' }}>
+                        <div
+                            className="relative flex items-center justify-center w-full h-full overflow-hidden"
+                            onWheel={(e) => {
+                                e.preventDefault();
+                                const factor = e.deltaY < 0 ? 1.12 : 0.89;
+                                setView((v) => ({ ...v, scale: Math.min(6, Math.max(0.4, v.scale * factor)) }));
+                            }}
+                        >
+                            <div
+                                className="relative inline-block shadow-2xl"
+                                style={{
+                                    maxWidth: '100%',
+                                    maxHeight: '100%',
+                                    transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
+                                    transformOrigin: 'center center'
+                                }}
+                            >
                                 <img
                                     ref={imageRef}
                                     src={activeImage.url}
@@ -639,6 +752,7 @@ export default function AnnotationEngine() {
                                             className="absolute -top-3 -right-3 bg-white text-red-600 rounded-full border border-red-200 hidden group-hover:block hover:scale-110 shadow-lg z-30 p-0.5 cursor-pointer"
                                             onMouseDown={(e) => {
                                                 e.stopPropagation();
+                                                pushUndo();
                                                 setAnnotations(prev => prev.filter(a => a.id !== anno.id));
                                                 setIsDirty(true);
                                             }}
@@ -802,6 +916,7 @@ export default function AnnotationEngine() {
                                     if (!pendingAnnotation.clauseId) {
                                         showToast("缔结指纹失败：必须要指定具体的隐患类型并关联法条！", "error"); return;
                                     }
+                                    pushUndo();
                                     setAnnotations([...annotations, pendingAnnotation]);
                                     setIsDirty(true);
                                     setShowModal(false);

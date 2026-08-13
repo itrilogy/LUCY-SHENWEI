@@ -1,28 +1,33 @@
-const STORAGE_KEY = 'safespot_admin_token';
+import { api } from './api';
+import { fetchCurrentUser, isStaffUser, loginUser } from './userAuth';
+
+export async function restoreAdminSession() {
+    const user = await fetchCurrentUser();
+    return isStaffUser(user) ? user : null;
+}
+
+export async function loginAdminAccount(username, password) {
+    const user = await loginUser(username, password);
+    if (!isStaffUser(user)) {
+        throw new Error('该账号无权进入管理端（需要管理员或培训师）');
+    }
+    return user;
+}
+
+export async function loginAdminPin(pin) {
+    const data = await api.post('/api/admin/login', { pin });
+    if (data.user) {
+        sessionStorage.setItem('safespot_user', JSON.stringify(data.user));
+    }
+    return data.user;
+}
 
 export function isAdminAuthed() {
-    return sessionStorage.getItem(STORAGE_KEY) === 'local-admin';
-}
-
-export function setAdminAuthed(token) {
-    if (token) sessionStorage.setItem(STORAGE_KEY, token);
-    else sessionStorage.removeItem(STORAGE_KEY);
-}
-
-export function clearAdminAuth() {
-    sessionStorage.removeItem(STORAGE_KEY);
-}
-
-export async function loginAdmin(pin) {
-    const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-        throw new Error(data.error || '口令验证失败');
+    try {
+        const raw = sessionStorage.getItem('safespot_user');
+        const user = raw ? JSON.parse(raw) : null;
+        return isStaffUser(user);
+    } catch {
+        return false;
     }
-    setAdminAuthed(data.token || 'local-admin');
-    return data;
 }

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Layers, FilePlus2, Search, Eye } from 'lucide-react';
 
-export default function TestAssembler() {
+export default function TestAssembler({ editExamId = null, onEditConsumed }) {
     const [images, setImages] = useState([]);
     const [selectedImages, setSelectedImages] = useState([]);
+    const [examId, setExamId] = useState(null);
     const [paperName, setPaperName] = useState("本月安全隐患排查测验");
     const [paperDesc, setPaperDesc] = useState("这是一场例行的安全测验，请仔细排查图中的所有隐患点。");
 
@@ -64,6 +65,11 @@ export default function TestAssembler() {
         fetchKnowledge();
     }, []);
 
+    useEffect(() => {
+        if (!editExamId) return;
+        loadExam(editExamId);
+    }, [editExamId]);
+
     const fetchImages = async () => {
         const res = await fetch('/api/assets');
         const data = await res.json();
@@ -84,6 +90,40 @@ export default function TestAssembler() {
         setKnowledgeTree(data.knowledgeTree || []);
     };
 
+    const loadExam = async (id) => {
+        try {
+            const exam = await fetch(`/api/exams/${encodeURIComponent(id)}`).then((r) => {
+                if (!r.ok) throw new Error('加载试卷失败');
+                return r.json();
+            });
+            const lib = await fetch('/api/assets').then((r) => r.json());
+            const list = lib.data || [];
+            const byName = new Map(list.map((i) => [i.name, i]));
+            const selected = (exam.slides || []).map((name) => byName.get(name)).filter(Boolean);
+            setExamId(exam.name || exam.examName);
+            setPaperName(exam.examName || '');
+            setPaperDesc(exam.description || '');
+            setTotalScore(exam.totalScore || 100);
+            setScoringRule(exam.scoringRule || 'weighted');
+            setTimeLimitSec(exam.timeLimitSec || 0);
+            setSelectedImages(selected);
+            setActivePreview(selected[0] || null);
+            showToast(`已载入「${exam.examName}」`);
+        } catch (e) {
+            showToast(e.message || '载入失败', 'error');
+        } finally {
+            if (onEditConsumed) onEditConsumed();
+        }
+    };
+
+    const moveItem = (idx, dir) => {
+        const next = [...selectedImages];
+        const j = idx + dir;
+        if (j < 0 || j >= next.length) return;
+        [next[idx], next[j]] = [next[j], next[idx]];
+        setSelectedImages(next);
+    };
+
     const toggleSelect = (img) => {
         if (selectedImages.find(s => s.name === img.name)) {
             setSelectedImages(selectedImages.filter(s => s.name !== img.name));
@@ -102,6 +142,7 @@ export default function TestAssembler() {
         setPublishing(true);
         try {
             const payload = {
+                examId: examId || undefined,
                 examName: paperName.trim(),
                 description: paperDesc.trim(),
                 createdAt: Date.now(),
@@ -118,12 +159,13 @@ export default function TestAssembler() {
             });
 
             if (res.ok) {
+                const body = await res.json().catch(() => ({}));
+                if (body.examId) setExamId(body.examId);
                 const actionText = status === 'published' ? '发布' : '保存';
                 showToast(`试卷【${paperName}】${actionText}成功`);
-                setSelectedImages([]);
-                setActivePreview(null);
             } else {
-                showToast('试卷状态更新失败', 'error');
+                const err = await res.json().catch(() => ({}));
+                showToast(err.error || '试卷状态更新失败', 'error');
             }
         } catch (err) {
             showToast('网络传输错误', 'error');
@@ -220,7 +262,26 @@ export default function TestAssembler() {
             <div className="p-4 border-b bg-gray-50 flex items-center justify-between rounded-tl-xl border-t border-l border-gray-200">
                 <h2 className="text-lg font-bold flex items-center text-gray-800">
                     <Layers className="w-5 h-5 mr-2 text-indigo-500" /> 组卷指挥官
+                    {examId && <span className="ml-2 text-[10px] font-mono text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded">编辑 {examId}</span>}
                 </h2>
+                <div className="flex gap-2">
+                    {examId && (
+                        <button
+                            type="button"
+                            onClick={() => { setExamId(null); setSelectedImages([]); setActivePreview(null); }}
+                            className="text-xs font-bold text-gray-500 hover:text-indigo-600"
+                        >
+                            新建空白卷
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => { window.location.href = examId ? `/api/admin/bank/export.zip?examId=${encodeURIComponent(examId)}` : '/api/admin/bank/export.zip'; }}
+                        className="text-xs font-bold text-emerald-600 hover:text-emerald-700"
+                    >
+                        导出题库 zip
+                    </button>
+                </div>
             </div>
 
             <div className="flex-1 flex overflow-hidden border-l border-b border-gray-200">
@@ -376,7 +437,9 @@ export default function TestAssembler() {
                                                     {img.baseName || img.originalName || img.name}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center space-x-3 ml-2 flex-shrink-0">
+                                            <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
+                                                <button type="button" title="上移" onClick={(e) => { e.stopPropagation(); moveItem(i, -1); }} className="text-gray-300 hover:text-indigo-600 px-1">↑</button>
+                                                <button type="button" title="下移" onClick={(e) => { e.stopPropagation(); moveItem(i, 1); }} className="text-gray-300 hover:text-indigo-600 px-1">↓</button>
                                                 <span className="text-[10px] font-mono font-medium text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded-md flex items-center">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-red-400 mr-1.5"></span>
                                                     {img.meta?.items?.length || 0} 点 / {examScores[i]} 分
