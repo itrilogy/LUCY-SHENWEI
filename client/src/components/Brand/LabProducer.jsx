@@ -12,7 +12,7 @@ export default function LabProducer({ compact = false }) {
       <div className="mt-2 flex items-center justify-center gap-4">
         <div className="flex flex-col items-center gap-1 min-w-0">
           <SafeSpotMark size={tile} />
-          <span className="text-[10px] font-bold text-gray-700">SafeSpot</span>
+          <span className="text-[10px] font-bold text-gray-700">审微 · ShenWei</span>
         </div>
         <span className="text-gray-300 font-black text-lg pb-4" aria-hidden="true">×</span>
         <div className="flex flex-col items-center gap-1 min-w-0">

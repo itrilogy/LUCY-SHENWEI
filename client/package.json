@@ -1,7 +1,8 @@
 {
-  "name": "client",
+  "name": "shenwei-safespot",
   "private": true,
   "version": "0.0.0",
+  "description": "审微 · ShenWei（SafeSpot）安全隐患识别培训系统 · 鹿溪联合创新实验室",
   "type": "module",
   "scripts": {
     "dev": "vite",

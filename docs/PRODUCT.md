@@ -1,8 +1,9 @@
-# SafeSpot 产品说明
+# 审微 · ShenWei 产品说明
 
 | 项 | 值 |
 |----|----|
-| 产品名 | SafeSpot |
+| 产品名 | 审微 · ShenWei（SafeSpot） |
+| 通用名 | 审微安全隐患识别培训系统（简称：审微 / SafeSpot） |
 | 工程名 | SafeEYE |
 | 形态 | **Web 应用**（浏览器 + 本机/内网 Node 服务） |
 | 版本基线 | V1.4（工程发行号 1.4.0-web）；软著材料见 `docs/软著/` |

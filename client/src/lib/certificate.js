@@ -32,7 +32,7 @@ export function printCertificate({
 </head>
 <body>
   <div class="sheet"><div class="inner">
-    <div class="sub">SafeSpot 安全应知应会</div>
+    <div class="sub">审微安全隐患识别培训系统 · 鹿溪联合创新实验室</div>
     <h1>培 训 合 格 证</h1>
     <div class="name">${escapeHtml(userName || '学员')}</div>
     <div class="line"></div>

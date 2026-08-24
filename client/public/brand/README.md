@@ -1,6 +1,6 @@
-# SafeSpot 品牌资产
+# 审微 · ShenWei 品牌资产
 
-> 对齐实验室范式：见鹿 / 听默 / 鹿溪志愿 / VectorStream / IQS  
+> 对齐实验室范式：见鹿 / 听默 / 脉息 / 问津  
 > 实验室主 LOGO 源文件：`Obsidian/departments/lab/鹿溪联合实验室/LUXI LAB.svg`
 
 ## 双层结构

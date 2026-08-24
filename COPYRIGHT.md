@@ -1,6 +1,6 @@
 # 版权声明（摘要）
 
-**SafeSpot 安全隐患识别培训系统**（工程名 SafeEYE）V1.4
+**审微安全隐患识别培训系统**（简称：审微 / SafeSpot；工程名 SafeEYE）V1.4
 
 出品：鹿溪联合创新实验室（LUXI Joint Innovation Lab）  
 著作权人：以书面约定为准。

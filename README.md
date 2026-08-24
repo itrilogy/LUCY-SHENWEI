@@ -1,12 +1,13 @@
 <p align="center">
-  <img src="client/public/safespot.svg" width="96" height="96" alt="SafeSpot">
+  <img src="client/public/safespot.svg" width="96" height="96" alt="审微 · ShenWei">
 </p>
 
-<h1 align="center">SafeSpot</h1>
+<h1 align="center">审微 · ShenWei</h1>
 
 <p align="center">
-  <strong>安全隐患识别培训系统</strong><br/>
-  工程名 SafeEYE · 本地优先 Web · V1.4
+  <strong>审微安全隐患识别培训系统</strong>（简称：审微 / SafeSpot）<br/>
+  工程名 SafeEYE · 本地优先 Web · V1.4<br/>
+  <em>察于至微，防于未萌</em>
 </p>
 
 <p align="center">
@@ -18,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="client/public/safespot.svg" width="64" height="64" alt="SafeSpot 产品标" />
+  <img src="client/public/safespot.svg" width="64" height="64" alt="审微 · ShenWei 产品标" />
   &nbsp;&nbsp;<strong>×</strong>&nbsp;&nbsp;
   <img src="client/public/brand/luxi-lab-main.svg" width="64" height="64" alt="鹿溪联合创新实验室" />
 </p>
@@ -47,13 +48,13 @@
 ## 产品标识
 
 <p align="center">
-  <img src="client/public/safespot-logo.svg" width="360" alt="SafeSpot 横版字锁">
+  <img src="client/public/safespot-logo.svg" width="360" alt="审微 · ShenWei 横版字锁">
 </p>
 
 | | 标识 | 路径 |
 |:---:|:---|:---|
-| **产品标** | <img src="client/public/safespot.svg" width="48" height="48" alt="SafeSpot"> | [`client/public/safespot.svg`](./client/public/safespot.svg)（favicon / 顶栏） |
-| **横版字锁** | <img src="client/public/safespot-logo.svg" width="220" alt="SafeSpot 字锁"> | [`client/public/safespot-logo.svg`](./client/public/safespot-logo.svg) |
+| **产品标** | <img src="client/public/safespot.svg" width="48" height="48" alt="审微"> | [`client/public/safespot.svg`](./client/public/safespot.svg)（favicon / 顶栏） |
+| **横版字锁** | <img src="client/public/safespot-logo.svg" width="220" alt="审微 · ShenWei 字锁"> | [`client/public/safespot-logo.svg`](./client/public/safespot-logo.svg) |
 | **出品方** | <img src="client/public/brand/luxi-lab-main.svg" width="48" height="48" alt="LUXI LAB"> | [`client/public/brand/luxi-lab-main.svg`](./client/public/brand/luxi-lab-main.svg)（官方 `LUXI LAB.svg`） |
 
 产品标语义：光学分划 / 观测场 + 琥珀色隐患点。实验室主标只认官方鹿标，不用几何实验稿。说明见 [`client/public/brand/README.md`](./client/public/brand/README.md)。
@@ -222,4 +223,4 @@ SafeEYE/
 
 ---
 
-*SafeSpot V1.4 · Web · 鹿溪联合创新实验室*
+*审微安全隐患识别培训系统 V1.4 · Web · 鹿溪联合创新实验室*

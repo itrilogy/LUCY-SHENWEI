@@ -7,7 +7,7 @@ const DECLARATIONS = [
   {
     id: '01',
     title: '产品声明',
-    body: 'SafeSpot 是面向厂区培训的 Web 应用：用现场照片做「找隐患」考核。安环员标注并组卷，学员在浏览器中点击作答。工程目录名 SafeEYE，对外品牌为 SafeSpot。本系统不是桌面安装包，也不依赖公有云账号。',
+    body: '审微 · ShenWei（SafeSpot）是面向厂区培训的 Web 应用：用现场照片做「找隐患」考核。安环员标注并组卷，学员在浏览器中点击作答。工程目录名 SafeEYE，对外品牌为审微 / SafeSpot。本系统不是桌面安装包，也不依赖公有云账号。',
   },
   {
     id: '02',
@@ -37,13 +37,13 @@ export default function AppDeclaration({ open, onClose, version }) {
           <SafeSpotMark size={56} />
         </div>
         <h2 id="app-declaration-title" className="text-2xl font-black text-gray-900 tracking-tight">
-          SafeSpot
+          审微 · ShenWei
         </h2>
-        <p className="text-sm font-semibold text-indigo-600 mt-1">现场隐患识别 · 本地优先培训系统</p>
+        <p className="text-sm font-semibold text-indigo-600 mt-1">察于至微，防于未萌</p>
       </div>
 
       <dl className="mx-6 sm:mx-10 grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden border border-gray-100 bg-gray-100 text-left text-[12px]">
-        <Meta label="产品" value="SafeSpot" />
+        <Meta label="产品" value="审微 / SafeSpot" />
         <Meta label="工程" value="SafeEYE" />
         <Meta label="版本" value={ver} />
         <Meta label="形态" value="Web" />
@@ -76,7 +76,7 @@ export default function AppDeclaration({ open, onClose, version }) {
           知道了
         </button>
         <p className="text-[11px] text-gray-400 mt-3">
-          Copyright © {year} 鹿溪联合创新实验室 · SafeSpot
+          Copyright © {year} 鹿溪联合创新实验室 · 审微安全隐患识别培训系统
         </p>
       </div>
     </ModalShell>

@@ -167,8 +167,8 @@ function App() {
             <div className="flex justify-center mb-3">
               <SafeSpotMark size={56} />
             </div>
-            <h1 className="text-xl font-black text-gray-900">SafeSpot 管理端</h1>
-            <p className="text-sm text-gray-500 mt-1">请输入管理口令后继续</p>
+            <h1 className="text-xl font-black text-gray-900">审微 · ShenWei 管理端</h1>
+            <p className="text-sm text-gray-500 mt-1">察于至微，防于未萌</p>
           </div>
           {!adminUsePin ? (
             <>
@@ -235,6 +235,9 @@ function App() {
                 title="应用声明"
               >
                 <SafeSpotWordmark size={34} />
+                <span className="hidden lg:inline ml-3 text-xs font-semibold tracking-wide text-[#2F7A73]">
+                  察于至微，防于未萌
+                </span>
               </button>
 
               {mode === 'play' ? (
