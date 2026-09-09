@@ -1,32 +1,30 @@
-<p align="center">
-  <img src="client/public/safespot.svg" width="96" height="96" alt="审微 · ShenWei">
-</p>
-
-<h1 align="center">审微 · ShenWei</h1>
-
-<p align="center">
-  <strong>审微安全隐患识别培训系统</strong>（简称：审微 / SafeSpot）<br/>
-  工程名 SafeEYE · 本地优先 Web · V1.4<br/>
-  <em>察于至微，防于未萌</em>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/version-1.4.0--web-2F7A73?style=flat-square" alt="version" />
-  <img src="https://img.shields.io/badge/Web-local--first-1A2428?style=flat-square" alt="web" />
-  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white" alt="react" />
-  <img src="https://img.shields.io/badge/Express-5-000000?style=flat-square" alt="express" />
-  <img src="https://img.shields.io/badge/SQLite-embedded-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="sqlite" />
-</p>
-
-<p align="center">
+<div align="center">
   <img src="client/public/safespot.svg" width="64" height="64" alt="审微 · ShenWei 产品标" />
-  &nbsp;&nbsp;<strong>×</strong>&nbsp;&nbsp;
-  <img src="client/public/brand/luxi-lab-main.svg" width="64" height="64" alt="鹿溪联合创新实验室" />
+  &nbsp;&nbsp;
+  <img src="client/public/brand/luxi-lab-main.svg" width="64" height="64" alt="鹿溪联合创新实验室 LUXI LAB" />
+</div>
+
+<h1 align="center">审微 · ShenWei（安全隐患识别培训系统）</h1>
+
+<p align="center">
+  <strong>察于至微，防于未萌</strong><br/>
+  <em>Discerning the minute, preempting the hazard.</em>
 </p>
 
 <p align="center">
-  出品 <strong>鹿溪联合创新实验室</strong>（LUXI Joint Innovation Lab）
+  <img src="https://img.shields.io/badge/Matrix-具身%C2%B7二察-0D5E42" alt="matrix" />
+  <img src="https://img.shields.io/badge/Product-审微%20ShenWei-2F7A73" alt="product" />
+  <img src="https://img.shields.io/badge/Lab-鹿溪联合创新实验室-0D5E42" alt="lab" />
+  <img src="https://img.shields.io/badge/Version-V1.4--web-f1c40f" alt="version" />
+  <img src="https://img.shields.io/badge/Stack-React%2019%20%7C%20Express%205%20%7C%20SQLite-61DAFB" alt="stack" />
 </p>
+
+<p align="center">
+  <b>鹿溪联合创新实验室</b>（LUXI Joint Innovation Lab）出品 · 工程名 SafeEYE · 本地优先 Web<br/>
+  仓库：<a href="https://github.com/itrilogy/LUCY-SHENWEI">itrilogy/LUCY-SHENWEI</a>
+</p>
+
+---
 
 <p align="center">
   <a href="#1-快速开始">快速开始</a> ·
@@ -45,19 +43,24 @@
 
 ---
 
-## 产品标识
+## 🎨 产品标识
 
-<p align="center">
-  <img src="client/public/safespot-logo.svg" width="360" alt="审微 · ShenWei 横版字锁">
-</p>
-
-| | 标识 | 路径 |
-|:---:|:---|:---|
-| **产品标** | <img src="client/public/safespot.svg" width="48" height="48" alt="审微"> | [`client/public/safespot.svg`](./client/public/safespot.svg)（favicon / 顶栏） |
-| **横版字锁** | <img src="client/public/safespot-logo.svg" width="220" alt="审微 · ShenWei 字锁"> | [`client/public/safespot-logo.svg`](./client/public/safespot-logo.svg) |
-| **出品方** | <img src="client/public/brand/luxi-lab-main.svg" width="48" height="48" alt="LUXI LAB"> | [`client/public/brand/luxi-lab-main.svg`](./client/public/brand/luxi-lab-main.svg)（官方 `LUXI LAB.svg`） |
+| 标识 | 预览 | 说明 | 源文件 |
+| :---: | :---: | :--- | :--- |
+| **产品方标** | <img src="client/public/safespot.svg" width="32" height="32" alt="审微" /> | 光学分划 / 观测场 + 琥珀色隐患点 | `client/public/safespot.svg` |
+| **产品字锁** | <img src="client/public/safespot-logo.svg" width="200" alt="审微 · ShenWei 字锁" /> | 横版产品字锁 | `client/public/safespot-logo.svg` |
+| **实验室主标** | <img src="client/public/brand/luxi-lab-main.svg" width="32" height="32" alt="LUXI LAB" /> | 官方 LUXI LAB（唯一权威源） | `client/public/brand/luxi-lab-main.svg` |
 
 产品标语义：光学分划 / 观测场 + 琥珀色隐患点。实验室主标只认官方鹿标，不用几何实验稿。说明见 [`client/public/brand/README.md`](./client/public/brand/README.md)。
+
+**色板（LUXI CI）**
+
+| Token | 色值 | 用途 |
+| :--- | :--- | :--- |
+| 鹿溪绿 | `#0D5E42` | 主色 / 图标底板 |
+| 源启白 | `#F5F7FA` | 浅色背景 / 反白 |
+| 进化蓝 | `#00D2FF` | 溪流 / 数据高亮 |
+| 琥珀色 | `#F1C40F` | 隐患点 / 显著信号 |
 
 ---
 
@@ -223,4 +226,9 @@ LUCY-SHENWEI/
 
 ---
 
-*审微安全隐患识别培训系统 V1.4 · Web · 鹿溪联合创新实验室*
+<div align="center">
+  <img src="client/public/brand/luxi-lab-main.svg" width="48" height="48" alt="LUXI LAB" />
+  <p><strong>审微 · ShenWei</strong> · 察于至微，防于未萌</p>
+  <p>© 鹿溪联合创新实验室 · LUXI Joint Innovation Lab</p>
+  <p><em>林深见鹿，源启清溪 · Deep Insights, Evolutionary Origin.</em></p>
+</div>
