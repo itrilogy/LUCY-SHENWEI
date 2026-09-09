@@ -154,7 +154,7 @@ Docker：`docker compose up -d --build`。备份：`npm run backup`。详见 [do
 ## 5. 目录
 
 ```text
-SafeEYE/
+LUCY-SHENWEI/
 ├── README.md                 本文件（对外说明）
 ├── COPYRIGHT.md / NOTICE.md  版权摘要与第三方组件
 ├── Dockerfile · docker-compose.yml
