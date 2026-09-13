@@ -69,7 +69,7 @@ export default function DBInspector() {
             {/* Header */}
             <div className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm">
                 <div className="flex items-center space-x-4">
-                    <div className="bg-indigo-600 p-2 rounded-lg">
+                    <div className="bg-primary p-2 rounded-lg">
                         <Database className="w-5 h-5 text-white" />
                     </div>
                     <div>
@@ -82,7 +82,7 @@ export default function DBInspector() {
                     <select
                         value={selectedTable}
                         onChange={(e) => setSelectedTable(e.target.value)}
-                        className="bg-gray-100 border-none rounded-lg px-4 py-2 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="bg-gray-100 border-none rounded-lg px-4 py-2 text-sm font-medium text-gray-700 "
                     >
                         {tables.map(t => <option key={t} value={t}>数据表: {t}</option>)}
                     </select>
@@ -105,7 +105,7 @@ export default function DBInspector() {
                         setOpsMsg(r.ok ? `已生成 ${d.fileName}` : (d.error || '备份失败'));
                         refreshBackups();
                     }}
-                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-bold"
+                    className="px-3 py-1.5 bg-primary text-white rounded-lg font-bold"
                 >
                     备份库+图片
                 </button>
@@ -139,7 +139,7 @@ export default function DBInspector() {
                     }} />
                 </label>
                 {backups.slice(0, 3).map((b) => (
-                    <a key={b.fileName} className="text-xs text-indigo-600 underline" href={`/api/admin/backup/download/${encodeURIComponent(b.fileName)}`}>{b.fileName}</a>
+                    <a key={b.fileName} className="text-xs text-primary underline" href={`/api/admin/backup/download/${encodeURIComponent(b.fileName)}`}>{b.fileName}</a>
                 ))}
                 {opsMsg && <span className="text-xs text-gray-500">{opsMsg}</span>}
             </div>
@@ -173,7 +173,7 @@ export default function DBInspector() {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {data.map((row, i) => (
-                                    <tr key={i} className="hover:bg-indigo-50/30 transition-colors">
+                                    <tr key={i} className="hover:bg-sunken/30 transition-colors">
                                         {Object.values(row).map((val, j) => (
                                             <td key={j} className="px-6 py-4 text-sm text-gray-600 font-mono truncate max-w-[250px]" title={String(val)}>
                                                 {typeof val === 'object' ? JSON.stringify(val) : String(val)}

@@ -3,12 +3,13 @@ import {
     Brain, Target, Users, Building2, Lightbulb,
     RefreshCw, AlertTriangle, TrendingUp, Play, RotateCcw, Filter
 } from 'lucide-react';
+import { ChartFootnote, EmptyState } from '../Ui/EmptyState';
 
 /* ========== 轻量 SVG 图表 ========== */
-function BarChart({ items, maxHint, color = '#4f46e5', height = 180, unit = '' }) {
+function BarChart({ items, maxHint, color = 'var(--product-accent)', height = 180, unit = '' }) {
     const data = (items || []).filter(i => i && (i.label != null));
     if (!data.length) {
-        return <div className="h-40 flex items-center justify-center text-xs text-gray-400 border border-dashed rounded-xl">暂无图表数据</div>;
+        return <div className="h-40 flex items-center justify-center text-xs text-muted border border-dashed border-line rounded-[10px]">暂无图表数据 · 完成正式考核后出现</div>;
     }
     const maxV = Math.max(maxHint || 0, ...data.map(d => Number(d.value) || 0), 1);
     const barH = Math.max(12, Math.floor((height - 40) / data.length) - 6);
@@ -38,10 +39,10 @@ function BarChart({ items, maxHint, color = '#4f46e5', height = 180, unit = '' }
     );
 }
 
-function ColumnChart({ items, color = '#0ea5e9', height = 160 }) {
+function ColumnChart({ items, color = 'var(--info-blue)', height = 160 }) {
     const data = items || [];
     if (!data.length) {
-        return <div className="h-40 flex items-center justify-center text-xs text-gray-400 border border-dashed rounded-xl">暂无图表数据</div>;
+        return <div className="h-40 flex items-center justify-center text-xs text-muted border border-dashed border-line rounded-[10px]">暂无图表数据 · 完成正式考核后出现</div>;
     }
     const maxV = Math.max(...data.map(d => Number(d.value) || 0), 1);
     const w = 320;
@@ -69,18 +70,19 @@ function ColumnChart({ items, color = '#0ea5e9', height = 160 }) {
     );
 }
 
-function MetricCard({ label, value, sub, tone = 'indigo' }) {
+function MetricCard({ label, value, sub, tone = 'accent' }) {
     const tones = {
-        indigo: 'from-indigo-500 to-indigo-600',
-        emerald: 'from-emerald-500 to-emerald-600',
-        sky: 'from-sky-500 to-sky-600',
-        amber: 'from-amber-500 to-amber-600'
+        accent: 'text-accent',
+        emerald: 'text-[var(--text-ok)]',
+        sky: 'text-[var(--text-info)]',
+        amber: 'text-[var(--text-warn)]',
+        indigo: 'text-accent'
     };
     return (
-        <div className={`rounded-2xl p-4 text-white bg-gradient-to-br ${tones[tone]} shadow-lg`}>
-            <div className="text-xs opacity-80 font-medium">{label}</div>
-            <div className="text-3xl font-black mt-1">{value}</div>
-            {sub && <div className="text-[11px] opacity-80 mt-1">{sub}</div>}
+        <div className="luxi-card p-4 bg-raised">
+            <div className="text-xs text-muted font-medium">{label}</div>
+            <div className={`text-3xl font-semibold mt-1 num ${tones[tone] || tones.accent}`}>{value}</div>
+            {sub && <div className="text-[11px] text-muted mt-1">{sub}</div>}
         </div>
     );
 }
@@ -211,7 +213,7 @@ export default function AnalyticsDashboard() {
             <aside className="w-72 border-r flex flex-col bg-gray-50 flex-shrink-0">
                 <div className="p-4 border-b bg-white">
                     <h2 className="text-lg font-bold flex items-center text-gray-800">
-                        <Brain className="w-5 h-5 mr-2 text-indigo-500" /> 学情分析
+                        <Brain className="w-5 h-5 mr-2 text-accent" /> 学情分析
                     </h2>
                     <p className="text-[11px] text-gray-500 mt-1">试卷 · 部门树 · 组合切片</p>
                 </div>
@@ -280,7 +282,7 @@ export default function AnalyticsDashboard() {
                         <div>部门：{draftDeptId ? (departments.find(d => d.id === draftDeptId)?.name || draftDeptId) : '全部'}
                             {draftDeptId && includeChildren ? '（含下级）' : draftDeptId ? '（仅本级）' : ''}
                         </div>
-                        <div className="text-indigo-600 font-bold pt-1">
+                        <div className="text-primary font-semibold pt-1">
                             模式：{MODE_LABEL[
                                 draftExamId && draftDeptId ? 'exam_department'
                                     : draftExamId ? 'exam'
@@ -301,7 +303,7 @@ export default function AnalyticsDashboard() {
                         type="button"
                         disabled={loading}
                         onClick={() => runAnalysis()}
-                        className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-300 text-white font-bold py-3 rounded-xl shadow"
+                        className="btn btn-primary w-full"
                     >
                         <Play className="w-4 h-4" />
                         {loading ? '分析中…' : '开始分析'}
@@ -309,7 +311,7 @@ export default function AnalyticsDashboard() {
                     <button
                         type="button"
                         onClick={resetFilters}
-                        className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-600 font-bold py-2 rounded-xl text-sm hover:bg-gray-50"
+                        className="btn btn-secondary w-full"
                     >
                         <RotateCcw className="w-3.5 h-3.5" /> 重置筛选
                     </button>
@@ -322,7 +324,7 @@ export default function AnalyticsDashboard() {
                     <div className="text-sm text-gray-600">
                         {filter.analysisMode && (
                             <span className="inline-flex items-center gap-2">
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent/15 text-primary">
                                     {MODE_LABEL[analysisMode] || analysisMode}
                                 </span>
                                 {filter.examName && <span>卷：{filter.examName}{filter.examDeleted ? ' [已删]' : ''}</span>}
@@ -337,7 +339,7 @@ export default function AnalyticsDashboard() {
                             </span>
                         )}
                     </div>
-                    <button type="button" onClick={() => runAnalysis(applied)} className="text-xs text-indigo-600 font-bold flex items-center gap-1">
+                    <button type="button" onClick={() => runAnalysis(applied)} className="text-xs text-primary font-bold flex items-center gap-1">
                         <RefreshCw className="w-3.5 h-3.5" /> 刷新结果
                     </button>
                 </div>
@@ -355,7 +357,7 @@ export default function AnalyticsDashboard() {
                             type="button"
                             onClick={() => setTab(t.id)}
                             className={`flex items-center gap-1 px-3 py-2 text-sm font-bold border-b-2 -mb-px whitespace-nowrap ${
-                                tab === t.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500'
+                                tab === t.id ? 'border-primary text-primary' : 'border-transparent text-muted'
                             }`}
                         >
                             <t.icon className="w-4 h-4" /> {t.label}
@@ -364,13 +366,13 @@ export default function AnalyticsDashboard() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4">
-                    {loading && <div className="text-gray-400 text-sm py-16 text-center">分析计算中…</div>}
-                    {error && <div className="text-red-500 text-sm bg-red-50 p-3 rounded-xl mb-4">{error}</div>}
+                    {loading && <div className="text-muted text-sm py-16 text-center">分析计算中…</div>}
+                    {error && <div className="text-[var(--text-danger)] text-sm bg-sunken p-3 rounded-[10px] mb-4">{error}</div>}
 
                     {!loading && data && (
                         <>
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-                                <MetricCard label="考核次数" value={s.attempts ?? 0} sub="正式 exam" tone="indigo" />
+                                <MetricCard label="考核次数" value={s.attempts ?? 0} sub="正式 exam" tone="accent" />
                                 <MetricCard
                                     label="通过率"
                                     value={s.attempts ? `${(s.passRate * 100).toFixed(1)}%` : '—'}
@@ -413,12 +415,12 @@ export default function AnalyticsDashboard() {
 
                             {tab === 'overview' && (
                                 <div className="space-y-4">
-                                    <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
-                                        <h3 className="font-bold text-indigo-900 flex items-center mb-2">
-                                            <Lightbulb className="w-4 h-4 mr-1" /> 分析结论
+                                    <div className="bg-sunken border border-line rounded-[10px] p-4">
+                                        <h3 className="font-semibold text-fg flex items-center mb-2">
+                                            <Lightbulb className="w-4 h-4 mr-1 text-accent" /> 分析结论
                                         </h3>
-                                        <p className="text-xs text-indigo-700/80 mb-3">
-                                            知识薄弱仅 unfound；miss 归入 PRI。部门筛选默认含下级。
+                                        <p className="text-xs text-muted mb-3">
+                                            知识薄弱仅统计遗漏（unfound）；误点计入 PRI。部门筛选默认含下级。规则结论是培训过程数据，不是合规考核唯一依据。
                                         </p>
                                         <div className="space-y-2">
                                             {insights.map((ins, i) => (
@@ -583,7 +585,7 @@ export default function AnalyticsDashboard() {
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                         {Object.entries(prof.distribution || {}).map(([k, v]) => (
                                             <div key={k} className="border rounded-xl p-4 text-center">
-                                                <div className="text-2xl font-black text-indigo-600">{v}</div>
+                                                <div className="text-2xl font-black text-primary">{v}</div>
                                                 <div className="text-xs text-gray-500 mt-1">{k}</div>
                                             </div>
                                         ))}
@@ -627,9 +629,10 @@ export default function AnalyticsDashboard() {
                     )}
 
                     {!loading && !data && !error && (
-                        <div className="text-center py-20 text-gray-400 text-sm">
-                            请在左侧选择试卷/部门，点击「开始分析」
-                        </div>
+                        <EmptyState
+                            title="尚未生成学情切片"
+                            hint="下一步：在左侧选择试卷或部门，点击「开始分析」。"
+                        />
                     )}
                 </div>
             </main>
@@ -637,11 +640,14 @@ export default function AnalyticsDashboard() {
     );
 }
 
-function ChartCard({ title, children, className = '' }) {
+function ChartCard({ title, children, className = '', note }) {
     return (
-        <div className={`border rounded-2xl p-4 bg-white ${className}`}>
-            <h4 className="text-sm font-bold text-gray-800 mb-3">{title}</h4>
+        <div className={`luxi-card p-4 bg-raised ${className}`}>
+            <h4 className="text-sm font-semibold text-fg mb-3">{title}</h4>
             {children}
+            <ChartFootnote>
+                {note || '口径：仅正式考核（exam）；练习默认不进主统计。PRI 为识别熟练度过程指标，不是法定达标承诺。'}
+            </ChartFootnote>
         </div>
     );
 }
@@ -653,7 +659,7 @@ function CompareBar({ label, current, base, unit }) {
         <div className="border rounded-xl p-3 bg-gray-50">
             <div className="flex justify-between mb-2 font-bold text-gray-700">
                 <span>{label}</span>
-                <span className={delta >= 0 ? 'text-emerald-600' : 'text-red-500'}>
+                <span className={delta >= 0 ? 'text-[var(--text-ok)]' : 'text-[var(--text-danger)]'}>
                     {delta >= 0 ? '+' : ''}{delta.toFixed(1)}{unit}
                 </span>
             </div>
@@ -661,7 +667,7 @@ function CompareBar({ label, current, base, unit }) {
                 <div className="flex items-center gap-2">
                     <span className="w-10 text-gray-400">本切片</span>
                     <div className="flex-1 h-2 bg-gray-200 rounded">
-                        <div className="h-2 bg-indigo-500 rounded" style={{ width: `${(current / max) * 100}%` }} />
+                        <div className="h-2 bg-accent rounded" style={{ width: `${(current / max) * 100}%` }} />
                     </div>
                     <span className="w-14 text-right font-mono">{current.toFixed(1)}{unit}</span>
                 </div>
@@ -705,7 +711,7 @@ function KnowledgeTable({ rows, showPath }) {
                             </td>
                         )}
                         <td className="py-2">{r.exposure}</td>
-                        <td className="py-2 text-emerald-600">{r.hits}</td>
+                        <td className="py-2 text-[var(--text-ok)]">{r.hits}</td>
                         <td className="py-2 text-red-500">{r.unfound}</td>
                         <td className="py-2">{r.unfoundRate != null ? `${(r.unfoundRate * 100).toFixed(0)}%` : '—'}</td>
                         <td className="py-2">{r.mastery != null ? `${(r.mastery * 100).toFixed(0)}%` : '—'}</td>

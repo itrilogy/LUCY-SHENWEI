@@ -234,21 +234,21 @@ export default function KnowledgeManager() {
                 <div className="mx-6 mt-3 px-4 py-2 rounded-lg bg-amber-50 text-amber-800 text-sm font-bold border border-amber-100">{toast}</div>
             )}
             {/* 头部标题区 */}
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-indigo-50/30">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-accent/10">
                 <div className="flex items-center space-x-3">
-                    <BookOpen className="w-6 h-6 text-indigo-600" />
+                    <BookOpen className="w-6 h-6 text-primary" />
                     <h2 className="text-xl font-black text-gray-900 tracking-tight">知识库管理中心</h2>
                 </div>
-                <div className="flex bg-white/50 p-1 rounded-xl border border-indigo-100">
+                <div className="flex bg-white/50 p-1 rounded-xl border border-line">
                     <button
                         onClick={() => setManagerTab('knowledge')}
-                        className={`px-4 py-1.5 text-xs font-black rounded-lg transition ${managerTab === 'knowledge' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-indigo-600'}`}
+                        className={`px-4 py-1.5 text-xs font-black rounded-lg transition ${managerTab === 'knowledge' ? 'bg-primary text-white' : 'text-gray-400 hover:text-primary'}`}
                     >
                         知识体系
                     </button>
                     <button
                         onClick={() => setManagerTab('risk')}
-                        className={`px-4 py-1.5 text-xs font-black rounded-lg transition ${managerTab === 'risk' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-indigo-600'}`}
+                        className={`px-4 py-1.5 text-xs font-black rounded-lg transition ${managerTab === 'risk' ? 'bg-primary text-white' : 'text-gray-400 hover:text-primary'}`}
                     >
                         风险字典
                     </button>
@@ -260,7 +260,7 @@ export default function KnowledgeManager() {
                     <div className="max-w-4xl mx-auto space-y-8">
                         <div>
                             <h3 className="text-sm font-black text-gray-900 mb-4 flex items-center">
-                                <Database className="w-4 h-4 mr-2 text-indigo-500" /> 风险发生概率 (Likelihood)
+                                <Database className="w-4 h-4 mr-2 text-accent" /> 风险发生概率 (Likelihood)
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                                 {riskDict.filter(d => d.type === 'likelihood').sort((a, b) => a.level_value - b.level_value).map(item => (
@@ -269,7 +269,7 @@ export default function KnowledgeManager() {
                                             <span className="text-[10px] font-mono opacity-60">等级权重</span>
                                             <input
                                                 type="number"
-                                                className="w-12 bg-white/50 border-none rounded p-0.5 text-xs font-bold text-center focus:ring-1 focus:ring-indigo-500"
+                                                className="w-12 bg-white/50 border-none rounded p-0.5 text-xs font-bold text-center "
                                                 value={item.level_value}
                                                 onChange={(e) => updateRiskDictItem(item.id, item.level_name, parseInt(e.target.value) || 0)}
                                             />
@@ -295,7 +295,7 @@ export default function KnowledgeManager() {
                                             <span className="text-[10px] font-mono opacity-60">等级权重</span>
                                             <input
                                                 type="number"
-                                                className="w-12 bg-white/50 border-none rounded p-0.5 text-xs font-bold text-center focus:ring-1 focus:ring-indigo-500"
+                                                className="w-12 bg-white/50 border-none rounded p-0.5 text-xs font-bold text-center "
                                                 value={item.level_value}
                                                 onChange={(e) => updateRiskDictItem(item.id, item.level_name, parseInt(e.target.value) || 0)}
                                             />
@@ -341,7 +341,7 @@ export default function KnowledgeManager() {
                                 <div
                                     key={s.id}
                                     onClick={() => { setSelectedScene(s); fetchCategories(s.id); }}
-                                    className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${selectedScene?.id === s.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 scale-[1.02]' : 'hover:bg-gray-100'}`}
+                                    className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${selectedScene?.id === s.id ? 'bg-primary text-white shadow-sm scale-[1.02]' : 'hover:bg-gray-100'}`}
                                 >
                                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                                         {selectedScene?.id === s.id ? <FolderOpen className="w-4 h-4 flex-shrink-0" /> : <Folder className="w-4 h-4 text-gray-400 flex-shrink-0" />}
@@ -360,8 +360,8 @@ export default function KnowledgeManager() {
                                     </div>
                                     {selectedScene?.id === s.id && editingId !== s.id && (
                                         <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={(e) => { e.stopPropagation(); startEditing('scene', s); }} className="p-1 hover:bg-indigo-500 rounded text-indigo-100"><Edit2 className="w-3 h-3" /></button>
-                                            <button onClick={(e) => { e.stopPropagation(); handleDelete('scene', s.id); }} className="p-1 hover:bg-indigo-500 rounded text-indigo-100"><Trash2 className="w-3 h-3" /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); startEditing('scene', s); }} className="p-1 hover:bg-primary-hover rounded text-inverse"><Edit2 className="w-3 h-3" /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDelete('scene', s.id); }} className="p-1 hover:bg-primary-hover rounded text-inverse"><Trash2 className="w-3 h-3" /></button>
                                         </div>
                                     )}
                                 </div>
@@ -396,7 +396,7 @@ export default function KnowledgeManager() {
                                     <div
                                         key={c.id}
                                         onClick={() => { setSelectedCategory(c); fetchItems(c.id); }}
-                                        className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${selectedCategory?.id === c.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'hover:bg-gray-100'}`}
+                                        className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${selectedCategory?.id === c.id ? 'bg-primary text-white shadow-sm' : 'hover:bg-gray-100'}`}
                                     >
                                         <div className="flex items-center space-x-3 flex-1 min-w-0">
                                             <Layers className={`w-4 h-4 flex-shrink-0 ${selectedCategory?.id === c.id ? '' : 'text-gray-400'}`} />
@@ -415,8 +415,8 @@ export default function KnowledgeManager() {
                                         </div>
                                         {selectedCategory?.id === c.id && editingId !== c.id && (
                                             <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={(e) => { e.stopPropagation(); startEditing('category', c); }} className="p-1 hover:bg-indigo-500 rounded text-indigo-100"><Edit2 className="w-3 h-3" /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDelete('category', c.id); }} className="p-1 hover:bg-indigo-500 rounded text-indigo-100"><Trash2 className="w-3 h-3" /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); startEditing('category', c); }} className="p-1 hover:bg-primary-hover rounded text-inverse"><Edit2 className="w-3 h-3" /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleDelete('category', c.id); }} className="p-1 hover:bg-primary-hover rounded text-inverse"><Trash2 className="w-3 h-3" /></button>
                                             </div>
                                         )}
                                     </div>
@@ -446,7 +446,7 @@ export default function KnowledgeManager() {
                                         });
                                         setShowItemModal(true);
                                     }}
-                                    className="flex items-center px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition shadow-sm"
+                                    className="flex items-center px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary-hover transition shadow-sm"
                                 >
                                     <Plus className="w-3 h-3 mr-1" /> 新增条款
                                 </button>
@@ -459,9 +459,14 @@ export default function KnowledgeManager() {
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 gap-4 max-w-4xl mx-auto">
-                                    {items.length === 0 && <p className="text-center py-20 text-gray-400 text-sm">暂无数据，请点击右上角新增</p>}
+                                    {items.length === 0 && (
+                                        <div className="empty-panel py-20">
+                                            <strong>暂无隐患条目</strong>
+                                            <span>下一步：点击右上角新增，绑定条款与分值。</span>
+                                        </div>
+                                    )}
                                     {items.map(item => (
-                                        <div key={item.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group relative border-l-4 border-l-indigo-500">
+                                        <div key={item.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group relative border-l-4 border-l-accent">
                                             <div className="flex justify-between items-start mb-3">
                                                 <div className="space-y-1">
                                                     <div className="flex items-center">
@@ -473,7 +478,7 @@ export default function KnowledgeManager() {
                                                 <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button
                                                         onClick={() => { setItemForm(item); setShowItemModal(true); }}
-                                                        className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-indigo-600 transition"
+                                                        className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-primary transition"
                                                     >
                                                         <Edit2 className="w-4 h-4" />
                                                     </button>
@@ -494,7 +499,7 @@ export default function KnowledgeManager() {
                                                 )}
                                                 <div className="flex items-center space-x-2">
                                                     <span className="text-[10px] text-gray-400 font-medium">风险配置:</span>
-                                                    <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                                                    <span className="text-[10px] font-black text-primary bg-accent/10 px-2 py-0.5 rounded">
                                                         {riskDict.find(d => d.id === item.likelihood_level)?.level_name || '未评级'} × {riskDict.find(d => d.id === item.consequence_level)?.level_name || '未评级'}
                                                     </span>
                                                 </div>
@@ -512,7 +517,7 @@ export default function KnowledgeManager() {
             {showItemModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in duration-300">
-                        <div className="bg-indigo-600 p-6 text-white flex justify-between items-center">
+                        <div className="bg-primary p-6 text-white flex justify-between items-center">
                             <h3 className="text-xl font-black tracking-tight">{itemForm.id ? '编辑指纹条款' : '新增隐患条款'}</h3>
                             <button onClick={() => setShowItemModal(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><X className="w-5 h-5" /></button>
                         </div>
@@ -522,7 +527,7 @@ export default function KnowledgeManager() {
                                 <input
                                     required
                                     autoFocus
-                                    className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition"
+                                    className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm font-bold  transition"
                                     placeholder="例如：高空作业人员未正确佩戴安全防护装备"
                                     value={itemForm.title}
                                     onChange={e => setItemForm({ ...itemForm, title: e.target.value })}
@@ -532,7 +537,7 @@ export default function KnowledgeManager() {
                                 <div>
                                     <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">发生概率 (Likelihood)</label>
                                     <select
-                                        className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition"
+                                        className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm font-bold  transition"
                                         value={itemForm.likelihood_level}
                                         onChange={e => {
                                             const weight = calculateWeight(e.target.value, itemForm.consequence_level);
@@ -547,7 +552,7 @@ export default function KnowledgeManager() {
                                 <div>
                                     <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">后果严重性 (Consequence)</label>
                                     <select
-                                        className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition"
+                                        className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm font-bold  transition"
                                         value={itemForm.consequence_level}
                                         onChange={e => {
                                             const weight = calculateWeight(itemForm.likelihood_level, e.target.value);
@@ -563,14 +568,14 @@ export default function KnowledgeManager() {
                             <div className="flex gap-4">
                                 <div className="flex-1">
                                     <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">实时计算分值 (Weight)</label>
-                                    <div className="w-full bg-indigo-600 border border-indigo-700 text-white rounded-xl px-4 py-3 text-sm font-black shadow-lg shadow-indigo-100">
+                                    <div className="w-full bg-primary border border-primary-active text-white rounded-xl px-4 py-3 text-sm font-black shadow-sm">
                                         {calculateWeight(itemForm.likelihood_level, itemForm.consequence_level)} 分
                                     </div>
                                 </div>
                                 <div className="flex-1">
                                     <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">标准代码 (Optional)</label>
                                     <input
-                                        className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 transition"
+                                        className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm  transition"
                                         placeholder="如 GB30871"
                                         value={itemForm.standard_code}
                                         onChange={e => setItemForm({ ...itemForm, standard_code: e.target.value })}
@@ -580,7 +585,7 @@ export default function KnowledgeManager() {
                             <div>
                                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">法规条文原文 (Content)</label>
                                 <textarea
-                                    className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm h-32 leading-relaxed focus:ring-2 focus:ring-indigo-500 transition resize-none"
+                                    className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm h-32 leading-relaxed  transition resize-none"
                                     placeholder="请在此输入对应的行业标准或法律规定原文..."
                                     value={itemForm.content}
                                     onChange={e => setItemForm({ ...itemForm, content: e.target.value })}
@@ -588,7 +593,7 @@ export default function KnowledgeManager() {
                             </div>
                             <div className="flex justify-end space-x-3 pt-4">
                                 <button type="button" onClick={() => setShowItemModal(false)} className="px-6 py-2.5 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition">取消</button>
-                                <button type="submit" className="px-8 py-2.5 bg-indigo-600 text-white text-sm font-black rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition">保存条目</button>
+                                <button type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-black rounded-xl shadow-sm hover:bg-primary-hover transition">保存条目</button>
                             </div>
                         </form>
                     </div>
@@ -598,7 +603,7 @@ export default function KnowledgeManager() {
             {showSceneModal && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in duration-300">
-                        <div className="bg-indigo-600 p-4 text-white flex justify-between items-center">
+                        <div className="bg-primary p-4 text-white flex justify-between items-center">
                             <h3 className="text-lg font-black tracking-tight">新增业务场景</h3>
                             <button onClick={() => setShowSceneModal(false)} className="bg-white/10 hover:bg-white/20 p-1 rounded-full transition"><X className="w-4 h-4" /></button>
                         </div>
@@ -608,7 +613,7 @@ export default function KnowledgeManager() {
                                 <input
                                     required
                                     autoFocus
-                                    className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition"
+                                    className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm font-bold  transition"
                                     placeholder="如：化工厂区"
                                     value={sceneName}
                                     onChange={e => setSceneName(e.target.value)}
@@ -616,7 +621,7 @@ export default function KnowledgeManager() {
                             </div>
                             <div className="flex justify-end space-x-3 pt-2">
                                 <button type="button" onClick={() => setShowSceneModal(false)} className="px-4 py-2 text-xs font-bold text-gray-500 hover:bg-gray-50 rounded-lg transition">取消</button>
-                                <button type="submit" className="px-6 py-2 bg-indigo-600 text-white text-xs font-black rounded-lg shadow-lg hover:bg-indigo-700 transition">确定新增</button>
+                                <button type="submit" className="px-6 py-2 bg-primary text-white text-xs font-black rounded-lg shadow-lg hover:bg-primary-hover transition">确定新增</button>
                             </div>
                         </form>
                     </div>
@@ -627,7 +632,7 @@ export default function KnowledgeManager() {
             {showCategoryModal && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in duration-300">
-                        <div className="bg-indigo-600 p-4 text-white flex justify-between items-center">
+                        <div className="bg-primary p-4 text-white flex justify-between items-center">
                             <h3 className="text-lg font-black tracking-tight">新增隐患大类</h3>
                             <button onClick={() => setShowCategoryModal(false)} className="bg-white/10 hover:bg-white/20 p-1 rounded-full transition"><X className="w-4 h-4" /></button>
                         </div>
@@ -637,7 +642,7 @@ export default function KnowledgeManager() {
                                 <input
                                     required
                                     autoFocus
-                                    className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 transition"
+                                    className="w-full bg-gray-50 border-gray-200 rounded-xl px-4 py-3 text-sm font-bold  transition"
                                     placeholder="如：火灾隐患"
                                     value={categoryName}
                                     onChange={e => setCategoryName(e.target.value)}
@@ -645,7 +650,7 @@ export default function KnowledgeManager() {
                             </div>
                             <div className="flex justify-end space-x-3 pt-2">
                                 <button type="button" onClick={() => setShowCategoryModal(false)} className="px-4 py-2 text-xs font-bold text-gray-500 hover:bg-gray-50 rounded-lg transition">取消</button>
-                                <button type="submit" className="px-6 py-2 bg-indigo-600 text-white text-xs font-black rounded-lg shadow-lg hover:bg-indigo-700 transition">确定新增</button>
+                                <button type="submit" className="px-6 py-2 bg-primary text-white text-xs font-black rounded-lg shadow-lg hover:bg-primary-hover transition">确定新增</button>
                             </div>
                         </form>
                     </div>

@@ -103,7 +103,7 @@ export default function ExamManager({ onEnterExam, onEditExam }) {
         <div className="bg-white flex flex-col h-full border-l border-gray-200">
             <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
                 <h2 className="text-lg font-bold flex items-center text-gray-800">
-                    <ScrollText className="w-5 h-5 mr-2 text-indigo-500" /> 考卷集
+                    <ScrollText className="w-5 h-5 mr-2 text-accent" /> 考卷集
                 </h2>
                 <div className="flex gap-2">
                     <button
@@ -117,7 +117,7 @@ export default function ExamManager({ onEnterExam, onEditExam }) {
                     >
                         开箱示范卷
                     </button>
-                    <button onClick={fetchExams} className="text-sm text-indigo-500 hover:text-indigo-700">刷新</button>
+                    <button onClick={fetchExams} className="btn btn-ghost btn-sm">刷新</button>
                 </div>
             </div>
 
@@ -125,7 +125,10 @@ export default function ExamManager({ onEnterExam, onEditExam }) {
                 {loading ? (
                     <div className="text-center text-gray-400 py-10">加载中...</div>
                 ) : exams.length === 0 ? (
-                    <div className="text-center text-gray-400 py-10">暂无组卷记录。请先在左侧新建并保存/发布考卷。</div>
+                    <div className="empty-panel py-10">
+                        <strong>暂无组卷记录</strong>
+                        <span>下一步：在左侧选题、设规则后保存草稿或发布。</span>
+                    </div>
                 ) : (
                     exams.map((exam, i) => {
                         const isPublished = exam.status === 'published';
@@ -145,7 +148,7 @@ export default function ExamManager({ onEnterExam, onEditExam }) {
                                         <p className="text-xs text-gray-500 mt-1 line-clamp-2" title={exam.description}>{exam.description || '无试卷说明'}</p>
                                     </div>
                                     <div className="flex space-x-1 flex-shrink-0">
-                                        <button onClick={() => onEditExam && onEditExam(id)} className="p-1.5 text-gray-400 hover:text-indigo-600 rounded hover:bg-indigo-50" title="回载编辑">
+                                        <button onClick={() => onEditExam && onEditExam(id)} className="p-1.5 text-gray-400 hover:text-primary rounded hover:bg-sunken" title="回载编辑">
                                             <Pencil className="w-4 h-4" />
                                         </button>
                                         <button onClick={() => openAssign(exam)} className="p-1.5 text-gray-400 hover:text-sky-600 rounded hover:bg-sky-50" title="布置考核">
@@ -202,7 +205,7 @@ export default function ExamManager({ onEnterExam, onEditExam }) {
                             <input type="checkbox" checked={assignForm.required} onChange={(e) => setAssignForm({ ...assignForm, required: e.target.checked })} />
                             必考
                         </label>
-                        <button type="button" onClick={saveAssign} className="w-full bg-indigo-600 text-white font-bold py-2 rounded-xl">保存布置</button>
+                        <button type="button" onClick={saveAssign} className="w-full bg-primary text-white font-bold py-2 rounded-xl">保存布置</button>
                         {assignments.length > 0 && (
                             <div className="text-xs space-y-1">
                                 <p className="font-bold text-gray-600">已有布置</p>

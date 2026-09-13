@@ -386,7 +386,12 @@ export default function InteractionJudge({
 
     // 考试中无图
     if (!activeImage) {
-        return <div className="p-10 text-center text-gray-500">检测不到题目…请返回大厅重新选择。</div>;
+        return (
+            <div className="empty-panel">
+                <strong>检测不到题目</strong>
+                <span>下一步：返回大厅重新选择试卷。</span>
+            </div>
+        );
     }
 
     return (
@@ -395,7 +400,7 @@ export default function InteractionJudge({
                 <div className="absolute top-4 left-4 bg-white/10 backdrop-blur-md px-4 py-2 rounded-lg flex space-x-4 border border-white/20 z-10">
                     <div className="text-white">
                         <span className="text-sm text-gray-400">本题隐患:</span>
-                        <span className="ml-2 font-bold text-lg text-emerald-400">
+                        <span className="ml-2 font-semibold text-lg text-[var(--luxi-gold)]">
                             {attemptMode === 'practice' || showHints
                                 ? `${foundItems.length} / ${hazardTotal || metaData?.length || 0}`
                                 : `${foundItems.length} 已发现`}
@@ -426,7 +431,7 @@ export default function InteractionJudge({
                         </>
                     )}
                     <div className="border-l border-white/20" />
-                    <div className={`text-xs font-bold px-2 py-1 rounded self-center ${attemptMode === 'practice' ? 'bg-sky-600/40 text-sky-200' : 'bg-indigo-600/40 text-indigo-200'}`}>
+                    <div className={`text-xs font-semibold px-2 py-1 rounded-full self-center ${attemptMode === 'practice' ? 'bg-info/40 text-[var(--text-info)]' : 'badge-accent'}`}>
                         {attemptMode === 'practice' ? '练习' : '考核'}
                     </div>
                 </div>
@@ -449,15 +454,13 @@ export default function InteractionJudge({
                             return (
                                 <div
                                     key={item.id}
-                                    className={`absolute border-[3px] transition-all duration-500 pointer-events-none
-                                      ${isFound ? 'border-emerald-500 bg-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'border-red-500 border-dashed bg-red-500/20'}
-                                      ${item.shape === 'circle' ? 'rounded-[50%]' : 'rounded-sm'}`}
+                                    className={`absolute border-[3px] transition-all duration-500 pointer-events-none ${isFound ? 'border-[var(--luxi-gold)] bg-[var(--luxi-gold)]/25' : 'border-[var(--alert-red)] border-dashed bg-[var(--alert-red)]/20'} ${item.shape === 'circle' ? 'rounded-[50%]' : 'rounded-sm'}`}
                                     style={{
                                         left: `${item.rect.x * 100}%`, top: `${item.rect.y * 100}%`,
                                         width: `${item.rect.w * 100}%`, height: `${item.rect.h * 100}%`
                                     }}
                                 >
-                                    <div className={`absolute -top-7 left-0 px-2 py-1 text-xs text-white font-bold whitespace-nowrap rounded z-10 shadow ${isFound ? 'bg-emerald-600' : 'bg-red-600'}`}>
+                                    <div className={`absolute -top-7 left-0 px-2 py-1 text-xs text-white font-medium whitespace-nowrap rounded z-10 ${isFound ? 'bg-[var(--luxi-gold)] text-[#1A2428]' : 'bg-[var(--alert-red)]'}`}>
                                         {isFound ? '命中' : '遗漏'} · {pointScoreMap[item.id] ?? item.scoreWeight} 分
                                     </div>
                                 </div>
@@ -467,7 +470,7 @@ export default function InteractionJudge({
                         {effectPoint && (
                             <div
                                 className={`absolute w-12 h-12 -ml-6 -mt-6 rounded-full border-4 pointer-events-none animate-ping
-                                   ${effectPoint.type === 'hit' ? 'border-emerald-400' : 'border-red-500'}`}
+                                   ${effectPoint.type === 'hit' ? 'border-[var(--luxi-gold)]' : 'border-[var(--alert-red)]'}`}
                                 style={{ left: `${effectPoint.x * 100}%`, top: `${effectPoint.y * 100}%` }}
                             />
                         )}
@@ -478,7 +481,7 @@ export default function InteractionJudge({
             <button
                 type="button"
                 onClick={() => setShowClauseDrawer(true)}
-                className="md:hidden absolute bottom-4 right-4 z-30 bg-indigo-600 text-white text-sm font-bold px-4 py-3 rounded-xl shadow-lg"
+                className="md:hidden absolute bottom-4 right-4 z-30 btn btn-primary"
             >
                 条款 / 下一题
             </button>
@@ -487,7 +490,7 @@ export default function InteractionJudge({
                 <button type="button" className="md:hidden self-end text-sm mb-2" onClick={() => setShowClauseDrawer(false)}>关闭</button>
                 <div className="mb-4 pb-4 border-b border-gray-700">
                     <h2 className="text-xl font-bold flex items-center">
-                        <Target className="w-5 h-5 mr-2 text-blue-400" />
+                        <Target className="w-5 h-5 mr-2 text-accent" />
                         第 {currentIndex + 1} 题
                         <span className="text-sm font-normal text-gray-500 ml-2">/ 共 {images.length} 题</span>
                     </h2>
@@ -507,14 +510,14 @@ export default function InteractionJudge({
                         if (!isFound && !showHints) return null;
                         const clauseDetail = clausesDict[item.clauseId];
                         return (
-                            <div key={item.id} className={`p-3 rounded-lg border ${isFound ? 'border-emerald-500/50 bg-emerald-900/20' : 'border-red-500/50 bg-red-900/20'}`}>
+                            <div key={item.id} className={`p-3 rounded-[10px] border ${isFound ? 'border-[var(--luxi-gold)]/50 bg-[var(--luxi-gold)]/10' : 'border-[var(--alert-red)]/50 bg-[var(--alert-red)]/10'}`}>
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className={`text-xs font-bold px-2 py-1 rounded ${isFound ? 'bg-emerald-800 text-emerald-100' : 'bg-red-800 text-red-100'}`}>
+                                    <span className={`text-xs font-semibold px-2 py-1 rounded ${isFound ? 'bg-[var(--luxi-gold)] text-[#1A2428]' : 'bg-[var(--alert-red)] text-white'}`}>
                                         {isFound ? `命中隐患 ${idx + 1}` : `遗漏 ${idx + 1}`}
                                     </span>
                                     <span className="text-xs text-gray-400">{pointScoreMap[item.id] ?? item.scoreWeight} 分</span>
                                 </div>
-                                <h4 className="text-sm font-semibold text-blue-300 mb-1">
+                                <h4 className="text-sm font-semibold text-accent mb-1">
                                     {clauseDetail?.desc || clauseDetail?.name || item.description || item.clauseId}
                                 </h4>
                                 <p className="text-xs text-gray-400 leading-relaxed">
@@ -529,7 +532,7 @@ export default function InteractionJudge({
                     {showHints ? (
                         <div className="space-y-3">
                             {isAllFound ? (
-                                <div className="bg-emerald-900/30 text-emerald-400 p-3 rounded text-sm text-center font-bold flex items-center justify-center">
+                                <div className="bg-[var(--luxi-gold)]/15 text-[var(--luxi-gold)] p-3 rounded text-sm text-center font-medium flex items-center justify-center">
                                     <CheckCircle2 className="w-5 h-5 mr-2" /> 通关！全部排查完毕
                                 </div>
                             ) : (
@@ -540,7 +543,7 @@ export default function InteractionJudge({
                             <button
                                 disabled={submitting}
                                 onClick={handleNext}
-                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 text-white font-bold py-3 rounded-lg shadow-lg transition"
+                                className="btn btn-primary btn-lg w-full"
                             >
                                 {submitting
                                     ? '提交中…'

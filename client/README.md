@@ -4,8 +4,8 @@ React 19 + Vite + Tailwind 3。页面在浏览器中运行；开发时经 Vite �
 
 | 项 | 值 |
 |----|----|
-| 产品 | 审微安全隐患识别培训系统（简称：审微 / SafeSpot）V1.4 |
+| 产品 | 审微安全隐患识别培训系统（简称：审微 / SafeSpot）V1.4.1-web |
 | Hash | `#/play` 学员 · `#/admin/<tab>` 管理 · `?kiosk=1` 培训机 |
-| 标识 | `/safespot.svg` 产品 favicon；`/brand/luxi-lab-main.svg` 实验室主 LOGO |
+| 标识 | `/safespot.svg` 产品方标；`/brand/luxi-lab.svg` 实验室符号标（写实主标不进 UI） |
 
 启动、部署、软著说明见仓库根目录 [README.md](../README.md)、[docs/DEPLOY.md](../docs/DEPLOY.md)、[docs/软著/](../docs/软著/00_文档索引.md)。

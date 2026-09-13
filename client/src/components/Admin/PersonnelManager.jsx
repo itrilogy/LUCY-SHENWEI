@@ -46,7 +46,7 @@ function DeptTree({ depts, selectedDept, onSelect, onEdit, onDelete, parentId = 
                             type="button"
                             onClick={() => onSelect(d.id)}
                             className={`flex-1 text-left text-sm px-2 py-1.5 rounded min-w-0 truncate ${
-                                selectedDept === d.id ? 'bg-indigo-50 text-indigo-700 font-bold' : 'hover:bg-gray-50'
+                                selectedDept === d.id ? 'bg-accent/10 text-primary font-bold' : 'hover:bg-gray-50'
                             }`}
                         >
                             {depth > 0 ? '└ ' : ''}{d.name}
@@ -54,7 +54,7 @@ function DeptTree({ depts, selectedDept, onSelect, onEdit, onDelete, parentId = 
                         <button
                             type="button"
                             onClick={() => onEdit(d)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-indigo-500 hover:text-indigo-700"
+                            className="opacity-0 group-hover:opacity-100 p-1 text-accent hover:text-primary"
                             title="编辑部门"
                         >
                             <Pencil className="w-3.5 h-3.5" />
@@ -352,12 +352,12 @@ export default function PersonnelManager() {
         <div className="h-full flex flex-col bg-white">
             <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
                 <h2 className="text-lg font-bold flex items-center text-gray-800">
-                    <Users className="w-5 h-5 mr-2 text-indigo-500" /> 人员与组织
+                    <Users className="w-5 h-5 mr-2 text-accent" /> 人员与组织
                 </h2>
                 <span className="text-xs text-gray-500">{org?.name || '默认企业'} · 支持部门/人员编辑</span>
             </div>
             {msg && (
-                <div className={`mx-4 mt-3 text-sm px-3 py-2 rounded-lg ${msgType === 'err' ? 'bg-red-50 text-red-700' : 'bg-indigo-50 text-indigo-700'}`}>
+                <div className={`mx-4 mt-3 text-sm px-3 py-2 rounded-lg ${msgType === 'err' ? 'bg-red-50 text-red-700' : 'bg-accent/10 text-primary'}`}>
                     {msg}
                 </div>
             )}
@@ -371,7 +371,7 @@ export default function PersonnelManager() {
                     <button
                         type="button"
                         onClick={() => setSelectedDept(null)}
-                        className={`text-left text-sm px-2 py-1.5 rounded mb-1 ${!selectedDept ? 'bg-indigo-50 text-indigo-700 font-bold' : 'hover:bg-gray-50'}`}
+                        className={`text-left text-sm px-2 py-1.5 rounded mb-1 ${!selectedDept ? 'bg-accent/10 text-primary font-bold' : 'hover:bg-gray-50'}`}
                     >
                         全部人员
                     </button>
@@ -384,7 +384,7 @@ export default function PersonnelManager() {
                             onDelete={delDept}
                         />
                         {depts.length === 0 && (
-                            <p className="text-xs text-gray-400 mt-4">暂无部门，请在下方添加</p>
+                            <p className="text-xs text-muted mt-4">暂无部门。下一步：在下方添加本厂组织节点。</p>
                         )}
                     </div>
 
@@ -417,7 +417,7 @@ export default function PersonnelManager() {
                         <button
                             type="button"
                             onClick={saveDept}
-                            className="w-full bg-indigo-600 text-white text-sm font-bold py-2 rounded-lg flex items-center justify-center hover:bg-indigo-500"
+                            className="w-full bg-primary text-white text-sm font-bold py-2 rounded-lg flex items-center justify-center hover:bg-primary-hover"
                         >
                             {deptMode === 'edit' ? (
                                 <><Save className="w-4 h-4 mr-1" /> 保存部门</>
@@ -476,7 +476,7 @@ export default function PersonnelManager() {
                             </thead>
                             <tbody>
                                 {users.map(u => (
-                                    <tr key={u.id} className={`border-b border-gray-50 hover:bg-gray-50 ${form.id === u.id ? 'bg-indigo-50/40' : ''}`}>
+                                    <tr key={u.id} className={`border-b border-gray-50 hover:bg-gray-50 ${form.id === u.id ? 'bg-accent/10' : ''}`}>
                                         <td className="py-2 font-medium">{u.real_name}</td>
                                         <td className="py-2 font-mono text-xs">{u.username}</td>
                                         <td className="py-2">{u.employee_no || '—'}</td>
@@ -493,7 +493,7 @@ export default function PersonnelManager() {
                                             <button
                                                 type="button"
                                                 onClick={() => startEditUser(u)}
-                                                className="text-indigo-500 hover:text-indigo-700 text-xs font-bold inline-flex items-center gap-0.5"
+                                                className="text-accent hover:text-primary text-xs font-bold inline-flex items-center gap-0.5"
                                             >
                                                 <Pencil className="w-3 h-3" /> 编辑
                                             </button>
@@ -510,7 +510,10 @@ export default function PersonnelManager() {
                                     </tr>
                                 ))}
                                 {users.length === 0 && (
-                                    <tr><td colSpan={7} className="py-10 text-center text-gray-400">暂无人员，请在下方创建</td></tr>
+                                    <tr><td colSpan={7} className="py-10 text-center text-muted">
+                                        <strong className="block text-fg">暂无人员</strong>
+                                        <span className="text-xs">下一步：在下方创建账号，或导入 CSV。</span>
+                                    </td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -620,7 +623,7 @@ export default function PersonnelManager() {
 
                         <button
                             type="submit"
-                            className="bg-indigo-600 text-white font-bold rounded-lg text-sm flex items-center justify-center hover:bg-indigo-500 md:col-span-2"
+                            className="bg-primary text-white font-bold rounded-lg text-sm flex items-center justify-center hover:bg-primary-hover md:col-span-2"
                         >
                             <Save className="w-4 h-4 mr-1" />
                             {userMode === 'edit' ? '保存修改' : '创建人员'}

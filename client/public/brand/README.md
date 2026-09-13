@@ -1,35 +1,36 @@
 # 审微 · ShenWei 品牌资产
 
-> 对齐实验室范式：见鹿 / 听默 / 脉息 / 问津  
-> 实验室主 LOGO 源文件：`Obsidian/departments/lab/鹿溪联合实验室/LUXI LAB.svg`
+对齐 [LUXI Design System v1.1](https://github.com/itrilogy/LUCY-DESIGN)。
 
-## 双层结构
+## 两层标识（产品 UI 只用这两层）
 
 ```
-┌─────────────────────────────────────────────┐
-│  产品层                                      │
-│    /safespot.svg · /safespot-logo.svg        │
-│    观测场 / 找隐患                           │
-├─────────────────────────────────────────────┤
-│  实验室层（出品方，全产品统一）                 │
-│    luxi-lab-main.svg ← 官方 LUXI LAB.svg     │
-└─────────────────────────────────────────────┘
+产品层                         实验室 LOGO（出品方 · 界面）
+/safespot.svg                  /brand/luxi-lab.svg
+鹿溪绿圆角砖 + 光学分划         符号标（Y + 一横，无方框）
++ 水平溪流 + 金色源启星         按底材取差异色
 ```
+
+写实主标 `luxi-lab-main.svg` / `LUXI LAB.svg` **不进产品 UI、README、关于页、页脚**，仅工商 / 法务 / 对外正式件。
+
+## 文件
 
 | 文件 | 用途 |
-|------|------|
-| `../safespot.svg` | 产品 favicon / 顶栏方标 |
+| :--- | :--- |
+| `../safespot.svg` | 产品方标 / favicon / 顶栏（同构线稿） |
 | `../safespot-logo.svg` | 产品横版字锁 |
-| **`luxi-lab-main.svg`** | **★ 实验室主 LOGO（网页用）** |
-| `LUXI LAB.svg` | 官方文件名副本（未改内容） |
-| `luxi-lab-main-v2.svg` | 官方 Version 2 备用 |
+| **`luxi-lab.svg`** | **实验室界面 LOGO 几何源。UI 内联后随主题取色：浅色鹿溪绿+进化蓝，深色源启白+进化蓝** |
+| `luxi-lab-inverse.svg` | 绿底反白（物料） |
+| `luxi-lab-gold.svg` | 深底烫金（物料；产品 UI 不用） |
+| `safespot-observatory.svg` | 旧观测场写实稿，应用图标变体，不进矩阵方标位 |
+| `luxi-lab-main.svg` / `LUXI LAB.svg` | 写实主标归档（正式件） |
 
-网页主标相对官方稿只改：`preserveAspectRatio="xMidYMid meet"`、渐变 id 去冲突。勿把听默几何 Y+L 当作鹿溪主 LOGO。
+符号标几何以 LUCY-DESIGN `<symbol id="luxi-symbol-mark">` 为准，不得自绘变体、不得加方框。
 
-## 同步
+## 同步符号标
 
 ```bash
-cp "/Users/kwangwah/Obsidian/departments/lab/鹿溪联合实验室/LUXI LAB.svg" \
-   client/public/brand/"LUXI LAB.svg"
-# 再按 IQS / 志愿工程同样方式生成 luxi-lab-main.svg
+cp /path/to/LUCY-DESIGN/assets/luxi-lab.svg        client/public/brand/luxi-lab.svg
+cp /path/to/LUCY-DESIGN/assets/luxi-lab-inverse.svg client/public/brand/luxi-lab-inverse.svg
+cp /path/to/LUCY-DESIGN/assets/luxi-lab-gold.svg    client/public/brand/luxi-lab-gold.svg
 ```

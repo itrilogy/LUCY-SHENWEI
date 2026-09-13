@@ -311,6 +311,31 @@
 
 ---
 
+### 2026-09-13 · 对齐 LUXI Design System v1.1（发行 1.4.1-web）
+
+- **原因**：界面仍用 Tailwind 靛紫与写实主标，未消费实验室范式（符号标、四色 tokens、工作台骨架、交互铁律）。对照 `LUCY-DESIGN` 与 `luxi-scenario-kit-final.html` 做修订落地。
+- **行为变化**：
+  - 实验室界面位改为符号标（浅色绿+蓝，深色白+蓝）；写实主标仅正式件，不进 UI / README / 页脚。
+  - 产品方标改为同构线稿（光学分划 + 圆心金点 + 水平溪流 + 源启星）。
+  - 接入 `tokens.css`；Primary 恒为鹿溪绿；审微 accent `#2F7A73` 仅强调。
+  - 管理端顶栏 56px + 左栏 240px；考核画布深色，管理/声明/LegalGate 浅色。
+  - 首次运行 LegalGate（不可默认勾选）；空状态补下一步；学情/报表加口径脚注；命中热区用标题金。
+  - 新增 `DESIGN/luxi-lab-avatar.png`（1024 白底双色符号标 + 组织名，供头像）。
+- **改动文件**：
+  - `client/src/styles/tokens.css` — 从 LUCY-DESIGN 同步的可执行 tokens
+  - `client/src/index.css`、`client/tailwind.config.js`、`client/index.html` — 主题属性与组件层
+  - `client/src/App.jsx` — 工作台骨架、LegalGate、主题切换
+  - `client/src/components/Brand/*`、`ConfirmDialog.jsx`、`Ui/EmptyState.jsx` — 标识、风险门、三态
+  - `client/src/components/Admin/*`、`User/*` — 去靛紫、按钮层级、口径脚注、命中金
+  - `client/public/safespot.svg`、`safespot-logo.svg`、`brand/luxi-lab*.svg` — 方标与符号标资产
+  - `DESIGN/luxi-lab-avatar.png` — 组织头像 PNG
+  - `README.md`、`docs/PRODUCT.md`、`docs/PLAN.md`、`docs/USER_GUIDE.md`、`docs/软著/00_文档索引.md` — 版本与标识说明
+  - `package.json`、`server/src/app.js` — 发行号 `1.4.1` / `1.4.1-web`
+- **验收**：首次打开见 LegalGate；管理端左栏导航、鹿溪绿主按钮、进化蓝焦点环；考核大厅深色画布唯一 Primary；README 双标为产品方标 × 符号标。
+- **残留 / 不做**：软著登记材料仍锁 V1.4，不随本界面小版本改写；未改合格证版式；未把符号标几何改成自绘变体。
+
+---
+
 ## 7. 回写模板（以后每次改造复制）
 
 ```markdown

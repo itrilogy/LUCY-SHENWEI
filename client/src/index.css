@@ -1,12 +1,202 @@
+@import './styles/tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --text-ok: #15803D;
+  --text-danger: #A92C20;
+  --text-info: #1D6FA5;
+  --text-warn: #8A6A05;
+}
+
+[data-theme="dark"],
+[data-theme="ink"] {
+  --text-ok: #4ADE88;
+  --text-danger: #F09185;
+  --text-info: #8AEBFF;
+  --text-warn: #FAD749;
+}
+
+html, body, #root {
+  min-height: 100%;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--text-primary);
+  background: var(--bg-page);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: var(--density-control, 36px);
+    padding: 0 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    transition: background var(--dur-fast) var(--ease-standard),
+      border-color var(--dur-fast) var(--ease-standard),
+      color var(--dur-fast) var(--ease-standard);
+  }
+  .btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+  }
+  .btn-lg { height: 44px; padding: 0 28px; }
+  .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+  .btn-primary {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+    color: #fff;
+  }
+  .btn-primary:active:not(:disabled) {
+    background: var(--color-primary-active);
+  }
+  .btn-secondary {
+    background: var(--bg-card);
+    color: var(--color-primary);
+    border-color: var(--border-line);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--bg-sunken);
+    border-color: var(--border-strong);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--bg-sunken);
+    color: var(--text-primary);
+  }
+  .btn-danger {
+    background: var(--alert-red);
+    color: #fff;
+    border-color: var(--alert-red);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--alert-red) 86%, black);
+  }
+
+  .field {
+    width: 100%;
+    height: var(--density-control, 36px);
+    padding: 0 12px;
+    border: 1px solid var(--border-line);
+    border-radius: var(--radius-xs);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font: inherit;
+  }
+  .field::placeholder { color: var(--text-muted); }
+  textarea.field {
+    height: auto;
+    padding: 10px 12px;
+    min-height: 60px;
+  }
+
+  .luxi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-xs);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: var(--radius-pill);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-ok { background: rgba(34, 197, 94, 0.12); color: var(--text-ok); }
+  .badge-warn { background: rgba(241, 196, 15, 0.18); color: var(--text-warn); }
+  .badge-danger { background: rgba(231, 76, 60, 0.12); color: var(--text-danger); }
+  .badge-neutral {
+    background: var(--bg-sunken);
+    color: var(--text-muted);
+    border: 1px solid var(--border-subtle);
+  }
+  .badge-accent {
+    background: color-mix(in oklab, var(--product-accent) 16%, transparent);
+    color: var(--product-accent);
+  }
+
+  .chart-note {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    line-height: 1.45;
+  }
+
+  .empty-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 8px;
+    padding: 40px 16px;
+    color: var(--text-muted);
+  }
+  .empty-panel strong {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* 实验室符号标：浅色绿+蓝，深色白+蓝。不加底砖。 */
+  .lab-mark {
+    display: block;
+    flex-shrink: 0;
+    color: var(--luxi-green);
+    --mark-accent: var(--luxi-cyan);
+  }
+  [data-theme="dark"] .lab-mark,
+  [data-theme="ink"] .lab-mark {
+    color: var(--origin-white);
+    --mark-accent: var(--luxi-cyan);
+  }
+}
+
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--luxi-cyan);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 160ms !important;
+    scroll-behavior: auto !important;
+  }
 }

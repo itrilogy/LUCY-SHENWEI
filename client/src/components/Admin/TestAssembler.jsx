@@ -261,15 +261,15 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
         <div className="bg-white flex flex-col h-full rounded-l-xl">
             <div className="p-4 border-b bg-gray-50 flex items-center justify-between rounded-tl-xl border-t border-l border-gray-200">
                 <h2 className="text-lg font-bold flex items-center text-gray-800">
-                    <Layers className="w-5 h-5 mr-2 text-indigo-500" /> 组卷指挥官
-                    {examId && <span className="ml-2 text-[10px] font-mono text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded">编辑 {examId}</span>}
+                    <Layers className="w-5 h-5 mr-2 text-accent" /> 组卷指挥官
+                    {examId && <span className="ml-2 text-[10px] font-mono text-accent bg-accent/10 px-2 py-0.5 rounded">编辑 {examId}</span>}
                 </h2>
                 <div className="flex gap-2">
                     {examId && (
                         <button
                             type="button"
                             onClick={() => { setExamId(null); setSelectedImages([]); setActivePreview(null); }}
-                            className="text-xs font-bold text-gray-500 hover:text-indigo-600"
+                            className="text-xs font-bold text-gray-500 hover:text-primary"
                         >
                             新建空白卷
                         </button>
@@ -298,13 +298,13 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                                 <input
                                     type="text"
                                     placeholder="关键字检索..."
-                                    className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                                    className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-md text-sm "
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
                                 />
                             </div>
                             <select
-                                className="w-[110px] sm:w-[130px] border border-gray-300 rounded-md px-2 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
+                                className="w-[110px] sm:w-[130px] border border-gray-300 rounded-md px-2 py-1.5 text-xs "
                                 value={filterScene}
                                 onChange={e => setFilterScene(e.target.value)}
                             >
@@ -333,11 +333,11 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                                         key={img.name}
                                         onClick={() => toggleSelect(img)}
                                         onMouseEnter={() => setActivePreview(img)}
-                                        className={`border rounded p-2 cursor-pointer transition flex flex-col items-center justify-center relative h-28 bg-gray-50 hover:border-indigo-300
-                                            ${isSelected ? 'border-indigo-500 shadow-[0_0_0_2px_rgba(99,102,241,0.3)] bg-indigo-50/20' : 'border-gray-200'}`}
+                                        className={`border rounded p-2 cursor-pointer transition flex flex-col items-center justify-center relative h-28 bg-gray-50 hover:border-accent
+                                            ${isSelected ? 'border-primary shadow-[0_0_0_2px_rgba(99,102,241,0.3)] bg-accent/10/20' : 'border-gray-200'}`}
                                     >
                                         <div className="absolute top-2 right-2 z-10">
-                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-500 border-indigo-500' : 'border-gray-300 bg-white/80'}`}>
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-accent/100 border-primary' : 'border-gray-300 bg-white/80'}`}>
                                                 {isSelected && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                                             </div>
                                         </div>
@@ -363,7 +363,7 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                         <div className="space-y-3">
                             <div>
                                 <input
-                                    className="w-full border-b-2 border-transparent hover:border-gray-200 focus:border-indigo-500 bg-transparent px-2 py-1 text-base font-bold text-gray-800 placeholder-gray-400 focus:outline-none transition-colors"
+                                    className="w-full border-b-2 border-transparent hover:border-gray-200 focus:border-primary bg-transparent px-2 py-1 text-base font-bold text-gray-800 placeholder-gray-400 focus:outline-none transition-colors"
                                     value={paperName}
                                     placeholder="输入测验活动名称..."
                                     onChange={e => setPaperName(e.target.value)}
@@ -371,7 +371,7 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                             </div>
                             <div>
                                 <textarea
-                                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-indigo-500 h-[60px] resize-none config-scrollbar outline-none text-gray-600"
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm  h-[60px] resize-none config-scrollbar outline-none text-gray-600"
                                     value={paperDesc}
                                     placeholder="输入试卷寄语或考核说明..."
                                     onChange={e => setPaperDesc(e.target.value)}
@@ -382,7 +382,7 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">卷面总分 (Total)</label>
                                     <input
                                         type="number"
-                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-bold focus:ring-1 focus:ring-indigo-500 outline-none"
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-bold "
                                         value={totalScore}
                                         onChange={e => setTotalScore(parseInt(e.target.value) || 0)}
                                     />
@@ -390,7 +390,7 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                                 <div>
                                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">赋分规则 (Rule)</label>
                                     <select
-                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none"
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold "
                                         value={scoringRule}
                                         onChange={e => setScoringRule(e.target.value)}
                                     >
@@ -403,7 +403,7 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                                     <input
                                         type="number"
                                         min={0}
-                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-bold focus:ring-1 focus:ring-indigo-500 outline-none"
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-bold "
                                         value={timeLimitSec}
                                         onChange={e => setTimeLimitSec(parseInt(e.target.value) || 0)}
                                         placeholder="0"
@@ -416,9 +416,9 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                     <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-gray-100/50">
                         {/* 候选案例选定清单 */}
                         <div className="h-44 border-b border-gray-200 bg-white flex flex-col flex-shrink-0 relative z-10">
-                            <div className="px-4 py-1.5 bg-indigo-50/70 border-b border-indigo-100 flex justify-between items-center text-xs font-bold text-indigo-800">
+                            <div className="px-4 py-1.5 bg-accent/10 border-b border-line flex justify-between items-center text-xs font-bold text-fg">
                                 <span>已纳入本卷的考核清单</span>
-                                <span className="bg-indigo-100 px-2 py-0.5 rounded-full ring-1 ring-indigo-200">共 {selectedImages.length} 题</span>
+                                <span className="bg-accent/15 px-2 py-0.5 rounded-full ring-1 ring-[var(--border-line)]">共 {selectedImages.length} 题</span>
                             </div>
                             <div className="flex-1 overflow-y-auto p-2 config-scrollbar space-y-1.5">
                                 {selectedImages.length === 0 ? (
@@ -427,19 +427,19 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                                     selectedImages.map((img, i) => (
                                         <div
                                             key={img.name}
-                                            className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-100 hover:bg-white hover:border-indigo-200 hover:shadow-sm cursor-pointer transition text-sm group"
+                                            className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-100 hover:bg-white hover:border-line hover:shadow-sm cursor-pointer transition text-sm group"
                                             onClick={() => setActivePreview(img)}
                                             onMouseEnter={() => setActivePreview(img)}
                                         >
                                             <div className="flex items-center flex-1 min-w-0">
-                                                <span className="w-5 h-5 rounded bg-indigo-100 text-indigo-700 flex justify-center items-center text-[10px] font-bold mr-2 flex-shrink-0">{i + 1}</span>
+                                                <span className="w-5 h-5 rounded bg-accent/15 text-primary flex justify-center items-center text-[10px] font-bold mr-2 flex-shrink-0">{i + 1}</span>
                                                 <span className="truncate flex-1 text-gray-700 font-medium text-xs" title={img.originalName || img.name}>
                                                     {img.baseName || img.originalName || img.name}
                                                 </span>
                                             </div>
                                             <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
-                                                <button type="button" title="上移" onClick={(e) => { e.stopPropagation(); moveItem(i, -1); }} className="text-gray-300 hover:text-indigo-600 px-1">↑</button>
-                                                <button type="button" title="下移" onClick={(e) => { e.stopPropagation(); moveItem(i, 1); }} className="text-gray-300 hover:text-indigo-600 px-1">↓</button>
+                                                <button type="button" title="上移" onClick={(e) => { e.stopPropagation(); moveItem(i, -1); }} className="text-gray-300 hover:text-primary px-1">↑</button>
+                                                <button type="button" title="下移" onClick={(e) => { e.stopPropagation(); moveItem(i, 1); }} className="text-gray-300 hover:text-primary px-1">↓</button>
                                                 <span className="text-[10px] font-mono font-medium text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded-md flex items-center">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-red-400 mr-1.5"></span>
                                                     {img.meta?.items?.length || 0} 点 / {examScores[i]} 分
@@ -457,7 +457,7 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                         {/* 案例详情与视界预览区域 */}
                         <div className="flex-1 p-4 flex flex-col overflow-hidden min-h-0">
                             <h3 className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide flex items-center shrink-0">
-                                <Eye className="w-3.5 h-3.5 mr-1 text-indigo-400" /> 考题透视图 (含标准答案)
+                                <Eye className="w-3.5 h-3.5 mr-1 text-accent" /> 考题透视图 (含标准答案)
                             </h3>
                             <div className="flex-1 bg-gray-950 rounded-lg shadow-inner relative overflow-hidden select-none border border-gray-800 group min-h-0">
                                 {!activePreview ? (
@@ -502,14 +502,14 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                         <button
                             disabled={selectedImages.length === 0 || publishing}
                             onClick={() => handleSaveOrPublish('draft')}
-                            className="flex-1 bg-white disabled:bg-gray-100 disabled:text-gray-400 text-indigo-600 font-bold py-3 text-sm rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 flex items-center justify-center transition-all disabled:cursor-not-allowed border border-indigo-200 disabled:border-gray-200"
+                            className="btn btn-secondary flex-1"
                         >
                             {publishing ? '处理中…' : `保存草稿 (${selectedImages.length})`}
                         </button>
                         <button
                             disabled={selectedImages.length === 0 || publishing}
                             onClick={() => handleSaveOrPublish('published')}
-                            className="flex-1 bg-indigo-600 disabled:bg-gray-300 disabled:text-gray-500 text-white font-bold py-3 text-sm rounded-xl shadow-md hover:shadow-lg hover:bg-indigo-700 flex items-center justify-center transition-all disabled:cursor-not-allowed border border-transparent disabled:border-gray-200"
+                            className="btn btn-primary flex-1"
                         >
                             <FilePlus2 className="w-5 h-5 mr-2" /> {publishing ? '处理中…' : '发布试卷'}
                         </button>
@@ -517,7 +517,7 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                 </div>
             </div>
             {toast.show && (
-                <div className={`fixed bottom-8 right-8 z-[100] px-5 py-3 rounded-xl shadow-xl text-sm font-bold text-white ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+                <div className={`fixed bottom-8 right-8 z-[1000] px-5 py-3 rounded-[10px] shadow-md text-sm font-medium text-white ${toast.type === 'success' ? 'bg-[var(--state-up)]' : 'bg-[var(--alert-red)]'}`}>
                     {toast.message}
                 </div>
             )}

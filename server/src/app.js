@@ -20,7 +20,7 @@ const cleanup = require('./cleanup');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 const ADMIN_PIN = process.env.ADMIN_PIN || 'safeeye';
-const APP_VERSION = '1.4.0-web';
+const APP_VERSION = '1.4.1-web';
 
 const app = express();
 if (!IS_PROD) {

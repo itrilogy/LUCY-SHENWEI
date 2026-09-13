@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Medal, Star, ShieldCheck } from 'lucide-react';
+import { Trophy, Medal } from 'lucide-react';
+import { EmptyState, LoadingState } from '../Ui/EmptyState';
 
 export default function ScoreKeeper({ activeExamId, refreshKey = 0 }) {
     const [records, setRecords] = useState([]);
@@ -31,11 +32,11 @@ export default function ScoreKeeper({ activeExamId, refreshKey = 0 }) {
     }, [activeExamId, refreshKey, mode]);
 
     return (
-        <div className="bg-gray-900 h-full rounded-xl flex flex-col overflow-hidden text-gray-200">
-            <div className="p-5 border-b border-gray-800 bg-gray-800/50 flex flex-col">
+        <div className="bg-card h-full rounded-[10px] flex flex-col overflow-hidden text-fg">
+            <div className="p-5 border-b border-line bg-sunken/50 flex flex-col">
                 <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-xl font-bold flex items-center text-white">
-                        <Trophy className="w-6 h-6 mr-3 text-yellow-500" />
+                    <h2 className="text-[17px] font-semibold flex items-center text-fg">
+                        <Trophy className="w-5 h-5 mr-2 text-gold" />
                         龙虎榜
                     </h2>
                     <div className="px-2 py-0.5 bg-gray-800 rounded text-[10px] font-semibold text-gray-400">
@@ -67,25 +68,19 @@ export default function ScoreKeeper({ activeExamId, refreshKey = 0 }) {
 
             <div className="flex-1 overflow-y-auto p-4 flex flex-col space-y-4">
                 {loading && records.length === 0 ? (
-                    <div className="text-center w-full mt-10 opacity-50 animate-pulse flex flex-col items-center">
-                        <ShieldCheck className="w-8 h-8 mb-2 text-gray-500" />
-                        读取成绩…
-                    </div>
+                    <LoadingState label="读取成绩…" />
                 ) : records.length === 0 ? (
-                    <div className="text-center w-full mt-10 text-gray-500 flex flex-col items-center">
-                        <Star className="w-8 h-8 mb-2 opacity-30" />
-                        <p>虚位以待</p>
-                    </div>
+                    <EmptyState title="虚位以待" hint="下一步：完成一次正式考核后成绩会出现在这里。" />
                 ) : (
                     records.map((r, i) => {
                         let rankColor = 'text-gray-400 font-bold';
                         let bgItem = 'bg-gray-800';
-                        if (i === 0) { rankColor = 'text-yellow-400 font-black text-xl'; bgItem = 'bg-yellow-900/20 border-yellow-500/30 border'; }
-                        else if (i === 1) { rankColor = 'text-gray-300 font-bold text-lg'; bgItem = 'bg-gray-800 border-gray-600 border'; }
-                        else if (i === 2) { rankColor = 'text-amber-600 font-bold text-lg'; bgItem = 'bg-gray-800 border-amber-900/50 border'; }
+                        if (i === 0) { rankColor = 'text-gold font-semibold text-xl'; bgItem = 'bg-[var(--luxi-gold)]/10 border-[var(--luxi-gold)]/40 border'; }
+                        else if (i === 1) { rankColor = 'text-secondary font-semibold text-lg'; bgItem = 'bg-sunken border-line border'; }
+                        else if (i === 2) { rankColor = 'text-accent font-semibold text-lg'; bgItem = 'bg-sunken border-line border'; }
 
                         return (
-                            <div key={`${r.userName}-${r.completedAt}-${i}`} className={`w-full p-4 rounded-xl flex items-center justify-between shadow-lg transition-transform hover:translate-x-1 ${bgItem}`}>
+                            <div key={`${r.userName}-${r.completedAt}-${i}`} className={`w-full p-4 rounded-[10px] flex items-center justify-between ${bgItem}`}>
                                 <div className="flex items-center space-x-3 w-[70%]">
                                     <div className={`w-8 flex-shrink-0 text-center ${rankColor}`}>
                                         {i === 0 ? <Medal className="w-6 h-6 mx-auto" /> : `#${i + 1}`}
@@ -99,7 +94,7 @@ export default function ScoreKeeper({ activeExamId, refreshKey = 0 }) {
                                     </div>
                                 </div>
                                 <div className="text-right flex-shrink-0 w-[30%]">
-                                    <div className="text-2xl font-black text-emerald-400 drop-shadow-md">{r.score}</div>
+                                    <div className="text-2xl font-semibold text-[var(--text-ok)] num">{r.score}</div>
                                 </div>
                             </div>
                         );

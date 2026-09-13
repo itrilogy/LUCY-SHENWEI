@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
+import { X } from 'lucide-react';
 
-const OVERLAY = 'fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4';
-const CARD = 'bg-white rounded-3xl shadow-2xl w-full max-h-[92vh] overflow-y-auto relative';
+const OVERLAY = 'fixed inset-0 z-[100] flex items-center justify-center bg-[color-mix(in_oklab,var(--bg-page)_20%,black)]/55 backdrop-blur-sm p-4';
+const CARD = 'luxi-card shadow-lg w-full max-h-[92vh] overflow-y-auto relative bg-raised';
 
-/** Shared chrome for login / declaration / other dialogs. */
 export default function ModalShell({
   open = true,
   onClose,
@@ -39,10 +39,10 @@ export default function ModalShell({
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+            className="btn btn-ghost absolute top-3 right-3 z-10 w-8 h-8 p-0"
             aria-label="关闭"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         )}
         {children}

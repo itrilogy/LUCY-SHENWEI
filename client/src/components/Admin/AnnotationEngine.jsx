@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MousePointer2, Save, X, Square, Circle, Scaling, Trash2 } from 'lucide-react';
+import { MousePointer2, Save, X, Square, Circle, Scaling, Trash2, Target } from 'lucide-react';
 
 export default function AnnotationEngine() {
     const [images, setImages] = useState([]);
@@ -563,7 +563,7 @@ export default function AnnotationEngine() {
                     />
                     <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="px-3 py-1 bg-blue-100 text-blue-600 text-sm font-semibold rounded hover:bg-blue-200 transition"
+                        className="btn btn-secondary btn-sm"
                         title="支持多选图片"
                     >
                         上传
@@ -575,13 +575,13 @@ export default function AnnotationEngine() {
                     <input
                         type="text"
                         placeholder="输入关键字检索..."
-                        className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                        className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm "
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
                     />
                     <div className="flex space-x-2">
                         <select
-                            className="flex-1 border border-gray-300 rounded-md px-2 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
+                            className="flex-1 border border-gray-300 rounded-md px-2 py-1.5 text-xs "
                             value={filterScene}
                             onChange={e => setFilterScene(e.target.value)}
                         >
@@ -591,7 +591,7 @@ export default function AnnotationEngine() {
                             ))}
                         </select>
                         <select
-                            className="flex-1 border border-gray-300 rounded-md px-2 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
+                            className="flex-1 border border-gray-300 rounded-md px-2 py-1.5 text-xs "
                             value={filterStatus}
                             onChange={e => setFilterStatus(e.target.value)}
                         >
@@ -632,16 +632,16 @@ export default function AnnotationEngine() {
                 <div className="flex justify-between items-center mb-4 bg-white p-4 rounded-lg shadow-sm">
                     <div className="flex items-center space-x-4">
                         <h2 className="text-xl font-bold flex items-center">
-                            <MousePointer2 className="w-5 h-5 mr-2 text-indigo-500" /> 标注引擎
+                            <MousePointer2 className="w-5 h-5 mr-2 text-accent" /> 标注引擎
                         </h2>
 
                         {/* 画笔容器 */}
                         {activeImage && (
                             <div className="flex items-center space-x-2 bg-gray-100 p-1 rounded-lg ml-6">
-                                <button onClick={() => setDrawMode('rect')} className={`p-2 rounded transition ${drawMode === 'rect' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:bg-gray-200'}`} title="矩形标注">
+                                <button onClick={() => setDrawMode('rect')} className={`p-2 rounded transition ${drawMode === 'rect' ? 'bg-white shadow text-primary' : 'text-gray-500 hover:bg-gray-200'}`} title="矩形标注">
                                     <Square className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => setDrawMode('circle')} className={`p-2 rounded transition ${drawMode === 'circle' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:bg-gray-200'}`} title="圆形/椭圆标注">
+                                <button onClick={() => setDrawMode('circle')} className={`p-2 rounded transition ${drawMode === 'circle' ? 'bg-white shadow text-primary' : 'text-gray-500 hover:bg-gray-200'}`} title="圆形/椭圆标注">
                                     <Circle className="w-4 h-4" />
                                 </button>
                             </div>
@@ -659,7 +659,7 @@ export default function AnnotationEngine() {
                             <span className="text-[10px] text-gray-400">滚轮缩放 · Alt/空格拖移</span>
                             <button
                                 onClick={deleteAsset}
-                                className="bg-red-50 text-red-600 px-4 py-2 rounded shadow-sm hover:bg-red-100 flex items-center text-sm font-semibold transition border border-red-200"
+                                className="btn btn-danger"
                             >
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 销毁案例
@@ -667,7 +667,7 @@ export default function AnnotationEngine() {
                             <button
                                 onClick={saveMeta}
                                 disabled={saving}
-                                className="bg-indigo-600 disabled:bg-indigo-400 disabled:cursor-wait text-white px-5 py-2 rounded shadow hover:bg-indigo-700 flex items-center text-sm font-semibold transition"
+                                className="btn btn-primary"
                             >
                                 <Save className="w-4 h-4 mr-2" />
                                 {saving ? '保存中…' : '保存标注'}
@@ -680,8 +680,8 @@ export default function AnnotationEngine() {
                 <div className="flex-1 bg-gray-900 rounded-lg shadow-inner flex items-center justify-center p-4 relative overflow-hidden select-none">
                     {!activeImage ? (
                         <div className="text-gray-400 text-center">
-                            <div className="text-4xl mb-2">🎯</div>
-                            从左侧选择需要隐患打点的工程快照...
+                            <Target className="w-10 h-10 mx-auto mb-2 text-accent opacity-50" />
+                            从左侧选择需要隐患打点的工程快照…
                         </div>
                     ) : (
                         <div
@@ -846,14 +846,14 @@ export default function AnnotationEngine() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">1. 业务场景分类</label>
-                                    <select className="w-full border-gray-300 border rounded-lg p-2 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none" value={mScene} onChange={e => onMSceneChange(e.target.value)}>
+                                    <select className="w-full border-gray-300 border rounded-lg p-2 bg-gray-50 " value={mScene} onChange={e => onMSceneChange(e.target.value)}>
                                         <option value="" disabled>-- 请选择业务场景 --</option>
                                         {knowledgeTree.map(k => <option key={k.scene} value={k.scene}>{k.scene}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">2. 隐患问题大类</label>
-                                    <select className="w-full border-gray-300 border rounded-lg p-2 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none" value={mType} onChange={e => onMTypeChange(e.target.value)}>
+                                    <select className="w-full border-gray-300 border rounded-lg p-2 bg-gray-50 " value={mType} onChange={e => onMTypeChange(e.target.value)}>
                                         <option value="" disabled>-- 请选择隐患大类 --</option>
                                         {currentSceneData?.types.map(t => <option key={t.typeName} value={t.typeName}>{t.typeName}</option>)}
                                     </select>
@@ -862,7 +862,7 @@ export default function AnnotationEngine() {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">3. 具体特征或隐患说明 (定性)</label>
-                                <select className="w-full border-gray-300 border-2 rounded-lg p-2 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={mItem} onChange={e => handleItemChange(e.target.value)}>
+                                <select className="w-full border-gray-300 border-2 rounded-lg p-2 focus:border-primary " value={mItem} onChange={e => handleItemChange(e.target.value)}>
                                     <option value="" disabled>-- 请下拉选择符合该图元的隐患现象 --</option>
                                     {currentTypeData?.items.map(i => <option key={i.id} value={i.id}>{i.desc}</option>)}
                                 </select>
@@ -922,7 +922,7 @@ export default function AnnotationEngine() {
                                     setShowModal(false);
                                     setPendingAnnotation(null);
                                 }}
-                                className={`px-5 py-2 rounded-lg transition font-bold shadow-md ${!pendingAnnotation.clauseId ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-lg'}`}
+                                className={`px-5 py-2 rounded-lg transition font-bold shadow-md ${!pendingAnnotation.clauseId ? 'bg-primary/40 cursor-not-allowed' : 'bg-primary hover:bg-primary-hover text-white hover:shadow-lg'}`}
                             >
                                 缔结印记
                             </button>

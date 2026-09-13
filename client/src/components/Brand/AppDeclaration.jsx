@@ -36,13 +36,13 @@ export default function AppDeclaration({ open, onClose, version }) {
         <div className="flex justify-center mb-2">
           <SafeSpotMark size={56} />
         </div>
-        <h2 id="app-declaration-title" className="text-2xl font-black text-gray-900 tracking-tight">
+        <h2 id="app-declaration-title" className="text-[22px] font-semibold text-fg tracking-tight">
           审微 · ShenWei
         </h2>
-        <p className="text-sm font-semibold text-indigo-600 mt-1">察于至微，防于未萌</p>
+        <p className="text-sm font-semibold text-accent mt-1 tracking-[0.08em]">察于至微，防于未萌</p>
       </div>
 
-      <dl className="mx-6 sm:mx-10 grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden border border-gray-100 bg-gray-100 text-left text-[12px]">
+      <dl className="mx-6 sm:mx-10 grid grid-cols-2 sm:grid-cols-4 gap-px rounded-[10px] overflow-hidden border border-line bg-sunken text-left text-[12px]">
         <Meta label="产品" value="审微 / SafeSpot" />
         <Meta label="工程" value="SafeEYE" />
         <Meta label="版本" value={ver} />
@@ -56,26 +56,22 @@ export default function AppDeclaration({ open, onClose, version }) {
       <div className="px-6 sm:px-10 py-4 grid sm:grid-cols-2 gap-x-8 gap-y-3 text-left">
         {DECLARATIONS.map((item) => (
           <section key={item.id} className="flex gap-3">
-            <span className="font-mono text-[11px] font-bold text-indigo-500 pt-0.5 w-6 shrink-0">
+            <span className="font-mono text-[11px] font-semibold text-accent pt-0.5 w-6 shrink-0">
               {item.id}
             </span>
             <div>
-              <h3 className="text-sm font-bold text-gray-900">{item.title}</h3>
-              <p className="mt-0.5 text-[13px] leading-relaxed text-gray-600">{item.body}</p>
+              <h3 className="text-[17px] font-semibold text-fg leading-snug">{item.title}</h3>
+              <p className="mt-0.5 text-[13px] leading-relaxed text-secondary">{item.body}</p>
             </div>
           </section>
         ))}
       </div>
 
       <div className="px-6 sm:px-10 pb-7 text-center">
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-1 px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500"
-        >
+        <button type="button" onClick={onClose} className="btn btn-primary btn-lg">
           知道了
         </button>
-        <p className="text-[11px] text-gray-400 mt-3">
+        <p className="text-[11px] text-muted mt-3">
           Copyright © {year} 鹿溪联合创新实验室 · 审微安全隐患识别培训系统
         </p>
       </div>
@@ -85,9 +81,9 @@ export default function AppDeclaration({ open, onClose, version }) {
 
 function Meta({ label, value }) {
   return (
-    <div className="bg-white px-3 py-2.5">
-      <dt className="text-[10px] tracking-[0.16em] uppercase text-gray-400">{label}</dt>
-      <dd className="mt-0.5 font-semibold text-gray-800 truncate" title={value}>{value}</dd>
+    <div className="bg-raised px-3 py-2.5">
+      <dt className="text-[10px] tracking-[0.16em] uppercase text-muted">{label}</dt>
+      <dd className="mt-0.5 font-semibold text-fg truncate" title={value}>{value}</dd>
     </div>
   );
 }

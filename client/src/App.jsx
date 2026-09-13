@@ -11,7 +11,7 @@ import ReportsDashboard from './components/Admin/ReportsDashboard';
 import AnalyticsDashboard from './components/Admin/AnalyticsDashboard';
 import AuditDashboard from './components/Admin/AuditDashboard';
 import {
-  Fingerprint, ClipboardList, Zap, Database, BookOpen,
+  Fingerprint, ClipboardList, Database, BookOpen,
   LogOut, Users, LayoutDashboard, BarChart3, UserCog, Brain, Trophy, ScrollText
 } from 'lucide-react';
 import { loginAdminAccount, loginAdminPin, restoreAdminSession } from './lib/adminAuth';
@@ -20,8 +20,20 @@ import { SafeSpotMark, SafeSpotWordmark } from './components/Brand/SafeSpotMark'
 import AppDeclaration from './components/Brand/AppDeclaration';
 import ModalShell from './components/Brand/ModalShell';
 import LabProducer from './components/Brand/LabProducer';
+import LegalGate, { hasAcceptedLegalGate } from './components/Brand/LegalGate';
 
 const ADMIN_TABS = ['annotation', 'exams', 'knowledge', 'personnel', 'reports', 'analytics', 'inspector', 'audit'];
+
+const ADMIN_NAV = [
+  { id: 'annotation', label: '图库标注', short: '标注', icon: Fingerprint },
+  { id: 'exams', label: '组卷中心', short: '组卷', icon: ClipboardList },
+  { id: 'knowledge', label: '知识与风险', short: '知识', icon: BookOpen },
+  { id: 'personnel', label: '人员组织', short: '人员', icon: UserCog },
+  { id: 'reports', label: '成绩报表', short: '报表', icon: BarChart3 },
+  { id: 'analytics', label: '学情分析', short: '学情', icon: Brain },
+  { id: 'inspector', label: '数据巡检', short: '巡检', icon: Database },
+  { id: 'audit', label: '操作审计', short: '审计', icon: ScrollText },
+];
 
 function parseHash() {
   const raw = (window.location.hash || '#/play').replace(/^#\/?/, '');
@@ -45,7 +57,6 @@ function App() {
   const [pinError, setPinError] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
 
-  // 学员用户登录（与管理 PIN 分离）
   const [currentUser, setCurrentUser] = useState(() => getLoggedInUser());
   const [showUserLogin, setShowUserLogin] = useState(false);
   const [userLoginForm, setUserLoginForm] = useState({ username: '', password: '' });
@@ -58,6 +69,7 @@ function App() {
   const [scoreRefreshKey, setScoreRefreshKey] = useState(0);
   const [showCopyright, setShowCopyright] = useState(false);
   const [health, setHealth] = useState(null);
+  const [gateOk, setGateOk] = useState(() => hasAcceptedLegalGate());
 
   useEffect(() => {
     const onHash = () => {
@@ -69,6 +81,14 @@ function App() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute('data-product', 'shenwei');
+    root.setAttribute('data-density', 'comfortable');
+    const theme = !gateOk || mode === 'admin' ? 'light' : 'dark';
+    root.setAttribute('data-theme', theme);
+  }, [mode, gateOk]);
 
   useEffect(() => {
     fetch('/api/health')
@@ -158,17 +178,20 @@ function App() {
 
   const backendOk = health?.status === 'ok' || health?.status === 'degraded';
 
-  // —— 管理端 PIN 闸 ——
+  if (!gateOk) {
+    return <LegalGate onAccept={() => setGateOk(true)} />;
+  }
+
   if (mode === 'admin' && !adminUnlocked) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 font-sans">
-        <form onSubmit={handleAdminLogin} className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 space-y-5">
+      <div className="min-h-screen bg-page flex items-center justify-center p-6">
+        <form onSubmit={handleAdminLogin} className="luxi-card shadow-md w-full max-w-md p-8 space-y-5">
           <div className="text-center">
             <div className="flex justify-center mb-3">
               <SafeSpotMark size={56} />
             </div>
-            <h1 className="text-xl font-black text-gray-900">审微 · ShenWei 管理端</h1>
-            <p className="text-sm text-gray-500 mt-1">察于至微，防于未萌</p>
+            <h1 className="text-[22px] font-semibold text-fg">审微 · ShenWei 管理端</h1>
+            <p className="text-sm text-accent mt-1 tracking-wide">察于至微，防于未萌</p>
           </div>
           {!adminUsePin ? (
             <>
@@ -176,7 +199,7 @@ function App() {
                 value={adminForm.username}
                 onChange={e => setAdminForm({ ...adminForm, username: e.target.value })}
                 placeholder="管理员 / 培训师账号"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="field"
                 autoFocus
               />
               <input
@@ -184,7 +207,7 @@ function App() {
                 value={adminForm.password}
                 onChange={e => setAdminForm({ ...adminForm, password: e.target.value })}
                 placeholder="密码"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="field"
               />
             </>
           ) : (
@@ -193,29 +216,29 @@ function App() {
               value={adminForm.pin}
               onChange={e => setAdminForm({ ...adminForm, pin: e.target.value })}
               placeholder="管理口令（开发引导）"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field"
               autoFocus
             />
           )}
-          {pinError && <p className="text-sm text-red-500">{pinError}</p>}
+          {pinError && <p className="text-sm text-[var(--text-danger)]">{pinError}</p>}
           <button
             type="submit"
             disabled={pinLoading || (!adminUsePin ? !adminForm.username || !adminForm.password : !adminForm.pin)}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl"
+            className="btn btn-primary btn-lg w-full"
           >
             {pinLoading ? '验证中…' : '进入管理端'}
           </button>
           <button
             type="button"
             onClick={() => { setAdminUsePin(!adminUsePin); setPinError(''); }}
-            className="w-full text-sm text-gray-500 hover:text-indigo-600"
+            className="btn btn-ghost w-full"
           >
             {adminUsePin ? '使用账号密码登录' : '改用开发口令'}
           </button>
-          <button type="button" onClick={() => navigate('play')} className="w-full text-sm text-gray-500 hover:text-indigo-600">
+          <button type="button" onClick={() => navigate('play')} className="btn btn-ghost w-full">
             返回学员考核大厅
           </button>
-          <p className="text-[10px] text-center text-gray-400">开发账号 admin / admin123 · 生产请改密</p>
+          <p className="text-[10px] text-center text-muted">开发账号 admin / admin123 · 生产请改密</p>
           <LabProducer compact />
         </form>
       </div>
@@ -223,216 +246,219 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-800">
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
-        <div className="w-full mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center min-w-0">
-              <button
-                type="button"
-                className="flex-shrink-0 flex items-center cursor-pointer hover:opacity-80 transition bg-transparent p-0 border-0"
-                onClick={() => setShowCopyright(true)}
-                title="应用声明"
-              >
-                <SafeSpotWordmark size={34} />
-                <span className="hidden lg:inline ml-3 text-xs font-semibold tracking-wide text-[#2F7A73]">
-                  察于至微，防于未萌
-                </span>
-              </button>
-
-              {mode === 'play' ? (
-                <div className="hidden sm:ml-8 sm:flex sm:items-center sm:space-x-2">
-                  <span className="flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-indigo-600 text-white shadow-lg shadow-indigo-200">
-                    <Zap className="w-4 h-4 mr-2" /> 考核大厅
-                  </span>
-                </div>
-              ) : (
-                <div className="hidden sm:ml-6 sm:flex sm:space-x-2 overflow-x-auto">
-                  <AdminNavBtn active={adminTab === 'annotation'} onClick={() => goAdminTab('annotation')} icon={Fingerprint} label="图库标注" />
-                  <AdminNavBtn active={adminTab === 'exams'} onClick={() => goAdminTab('exams')} icon={ClipboardList} label="组卷中心" />
-                  <AdminNavBtn active={adminTab === 'knowledge'} onClick={() => goAdminTab('knowledge')} icon={BookOpen} label="知识与风险" />
-                  <AdminNavBtn active={adminTab === 'personnel'} onClick={() => goAdminTab('personnel')} icon={UserCog} label="人员组织" />
-                  <AdminNavBtn active={adminTab === 'reports'} onClick={() => goAdminTab('reports')} icon={BarChart3} label="成绩报表" />
-                  <AdminNavBtn active={adminTab === 'analytics'} onClick={() => goAdminTab('analytics')} icon={Brain} label="学情分析" />
-                  <AdminNavBtn active={adminTab === 'inspector'} onClick={() => goAdminTab('inspector')} icon={Database} label="数据巡检" />
-                  <AdminNavBtn active={adminTab === 'audit'} onClick={() => goAdminTab('audit')} icon={ScrollText} label="操作审计" />
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 sm:gap-3">
-              {health && (
-                <span
-                  className={`hidden md:inline-flex items-center text-[10px] font-mono px-2 py-1 rounded-full border ${
-                    backendOk ? 'border-emerald-200 text-emerald-700 bg-emerald-50' : 'border-red-200 text-red-600 bg-red-50'
-                  }`}
-                  title={JSON.stringify(health)}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${backendOk ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                  {backendOk ? '后端就绪' : '后端异常'}
-                </span>
-              )}
-
-              {mode === 'play' && (
-                currentUser ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-600 max-w-[140px] truncate" title={currentUser.username}>
-                      {currentUser.realName || currentUser.username}
-                      {currentUser.departmentName ? ` · ${currentUser.departmentName}` : ''}
-                    </span>
-                    <button
-                      onClick={handleUserLogout}
-                      className="text-xs font-bold text-gray-500 hover:text-red-500 px-2 py-1"
-                    >
-                      退出登录
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowUserLogin(true)}
-                    className="flex items-center px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-indigo-600 hover:bg-indigo-50 border border-indigo-100"
-                  >
-                    <Users className="w-4 h-4 mr-1.5" /> 学员登录
-                  </button>
-                )
-              )}
-
-              {mode === 'play' && !kiosk ? (
-                <button
-                  onClick={() => navigate('admin')}
-                  className="flex items-center px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-gray-600 hover:bg-gray-100 border border-gray-200"
-                >
-                  <LayoutDashboard className="w-4 h-4 mr-1.5" /> 管理端
-                </button>
-              ) : mode === 'admin' ? (
-                <>
-                  <button
-                    onClick={() => navigate('play')}
-                    className="flex items-center px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-indigo-600 hover:bg-indigo-50 border border-indigo-100"
-                  >
-                    <Users className="w-4 h-4 mr-1.5" /> 学员端
-                  </button>
-                  <button
-                    onClick={handleAdminLogout}
-                    className="flex items-center px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-gray-500 hover:bg-gray-100"
-                    title="退出管理会话"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </>
-              ) : null}
-            </div>
+    <div className="min-h-screen bg-page text-fg flex flex-col">
+      <header className="h-header sticky top-0 z-[100] bg-[color-mix(in_oklab,var(--bg-card)_86%,transparent)] border-b border-line backdrop-blur-[16px] saturate-[140%]">
+        <div className="h-full px-4 sm:px-6 flex justify-between items-center gap-3">
+          <div className="flex items-center min-w-0 gap-3">
+            <button
+              type="button"
+              className="flex-shrink-0 flex items-center cursor-pointer hover:opacity-80 transition bg-transparent p-0 border-0"
+              onClick={() => setShowCopyright(true)}
+              title="应用声明"
+            >
+              <SafeSpotWordmark size={32} />
+              <span className="hidden lg:inline ml-3 text-[11px] font-semibold tracking-[0.12em] text-accent">
+                察于至微，防于未萌
+              </span>
+            </button>
           </div>
 
-          {/* 移动端管理 Tab */}
-          {mode === 'admin' && (
-            <div className="sm:hidden flex gap-1 pb-2 overflow-x-auto">
-              <AdminNavBtn active={adminTab === 'annotation'} onClick={() => goAdminTab('annotation')} icon={Fingerprint} label="标注" compact />
-              <AdminNavBtn active={adminTab === 'exams'} onClick={() => goAdminTab('exams')} icon={ClipboardList} label="组卷" compact />
-              <AdminNavBtn active={adminTab === 'knowledge'} onClick={() => goAdminTab('knowledge')} icon={BookOpen} label="知识" compact />
-              <AdminNavBtn active={adminTab === 'personnel'} onClick={() => goAdminTab('personnel')} icon={UserCog} label="人员" compact />
-              <AdminNavBtn active={adminTab === 'reports'} onClick={() => goAdminTab('reports')} icon={BarChart3} label="报表" compact />
-              <AdminNavBtn active={adminTab === 'analytics'} onClick={() => goAdminTab('analytics')} icon={Brain} label="学情" compact />
-              <AdminNavBtn active={adminTab === 'inspector'} onClick={() => goAdminTab('inspector')} icon={Database} label="巡检" compact />
-              <AdminNavBtn active={adminTab === 'audit'} onClick={() => goAdminTab('audit')} icon={ScrollText} label="审计" compact />
-            </div>
-          )}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {health && (
+              <span
+                className={`hidden md:inline-flex items-center text-[10px] font-mono px-2 py-1 rounded-full border ${
+                  backendOk
+                    ? 'border-line text-[var(--text-ok)] bg-sunken'
+                    : 'border-[var(--alert-red)]/30 text-[var(--text-danger)] bg-sunken'
+                }`}
+                title={JSON.stringify(health)}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${backendOk ? 'bg-[var(--state-up)]' : 'bg-[var(--state-down)]'}`} />
+                {backendOk ? '后端就绪' : '后端异常'}
+              </span>
+            )}
+
+            {mode === 'play' && (
+              currentUser ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-secondary max-w-[140px] truncate" title={currentUser.username}>
+                    {currentUser.realName || currentUser.username}
+                    {currentUser.departmentName ? ` · ${currentUser.departmentName}` : ''}
+                  </span>
+                  <button
+                    onClick={handleUserLogout}
+                    className="btn btn-ghost btn-sm"
+                  >
+                    退出登录
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowUserLogin(true)}
+                  className="btn btn-secondary btn-sm"
+                >
+                  <Users className="w-4 h-4" /> <span className="hidden sm:inline">学员登录</span>
+                </button>
+              )
+            )}
+
+            {mode === 'play' && !kiosk ? (
+              <button
+                onClick={() => navigate('admin')}
+                className="btn btn-ghost btn-sm"
+                title="管理端"
+              >
+                <LayoutDashboard className="w-4 h-4" /> <span className="hidden sm:inline">管理端</span>
+              </button>
+            ) : mode === 'admin' ? (
+              <>
+                <button
+                  onClick={() => navigate('play')}
+                  className="btn btn-secondary btn-sm"
+                >
+                  <Users className="w-4 h-4" /> 学员端
+                </button>
+                <button
+                  onClick={handleAdminLogout}
+                  className="btn btn-ghost btn-sm"
+                  title="退出管理会话"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </>
+            ) : null}
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 w-full mx-auto p-4 sm:p-6 flex flex-col h-[calc(100vh-4rem)]">
-        {mode === 'play' && (
-          <div className="w-full flex-1 flex gap-4 min-h-0">
-            <div className="flex-1 shadow-2xl rounded-xl overflow-hidden border border-gray-800 bg-gray-950 flex flex-col min-w-0">
-              <InteractionJudge
-                onExamStart={setActiveExamId}
-                onExamChange={setActiveExamId}
-                autoStartExamId={autoStartExamId}
-                onAutoStartConsumed={() => setAutoStartExamId(null)}
-                onScoreSubmitted={() => setScoreRefreshKey(k => k + 1)}
-                currentUser={currentUser}
-                onRequestLogin={() => setShowUserLogin(true)}
-              />
+      <div className="flex flex-1 min-h-0">
+        {mode === 'admin' && (
+          <aside className="hidden sm:flex w-sidebar flex-col border-r border-line bg-card flex-shrink-0">
+            <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+              {ADMIN_NAV.map((item) => (
+                <AdminNavBtn
+                  key={item.id}
+                  active={adminTab === item.id}
+                  onClick={() => goAdminTab(item.id)}
+                  icon={item.icon}
+                  label={item.label}
+                />
+              ))}
+            </nav>
+          </aside>
+        )}
+
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+          {mode === 'admin' && (
+            <div className="sm:hidden flex gap-1 px-2 py-2 overflow-x-auto border-b border-line bg-card">
+              {ADMIN_NAV.map((item) => (
+                <AdminNavBtn
+                  key={item.id}
+                  active={adminTab === item.id}
+                  onClick={() => goAdminTab(item.id)}
+                  icon={item.icon}
+                  label={item.short}
+                  compact
+                />
+              ))}
             </div>
-            <div className="w-[350px] shadow-2xl rounded-xl overflow-hidden border border-gray-800 bg-gray-900 flex-shrink-0 hidden lg:block">
-              <ScoreKeeper activeExamId={activeExamId} refreshKey={scoreRefreshKey} />
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowBoard(true)}
-              className="lg:hidden fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-amber-500 text-white shadow-xl flex items-center justify-center"
-              title="龙虎榜"
-            >
-              <Trophy className="w-6 h-6" />
-            </button>
-            {showBoard && (
-              <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setShowBoard(false)}>
-                <div className="absolute right-0 top-0 h-full w-[min(100%,380px)] bg-gray-900 shadow-2xl" onClick={e => e.stopPropagation()}>
-                  <div className="p-3 flex justify-end">
-                    <button type="button" className="text-white text-sm" onClick={() => setShowBoard(false)}>关闭</button>
+          )}
+
+          <main className="flex-1 min-h-0 p-3 sm:p-4 flex flex-col overflow-hidden">
+            {mode === 'play' && (
+              <div className="w-full flex-1 flex gap-3 min-h-0">
+                <div className="flex-1 overflow-hidden border border-line rounded-[10px] bg-[var(--bg-sunken)] flex flex-col min-w-0">
+                  <InteractionJudge
+                    onExamStart={setActiveExamId}
+                    onExamChange={setActiveExamId}
+                    autoStartExamId={autoStartExamId}
+                    onAutoStartConsumed={() => setAutoStartExamId(null)}
+                    onScoreSubmitted={() => setScoreRefreshKey(k => k + 1)}
+                    currentUser={currentUser}
+                    onRequestLogin={() => setShowUserLogin(true)}
+                  />
+                </div>
+                <div className="w-[350px] overflow-hidden border border-line rounded-[10px] bg-card flex-shrink-0 hidden lg:block">
+                  <ScoreKeeper activeExamId={activeExamId} refreshKey={scoreRefreshKey} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBoard(true)}
+                  className="lg:hidden fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-[var(--luxi-gold)] text-[#1A2428] shadow-md flex items-center justify-center"
+                  title="龙虎榜"
+                >
+                  <Trophy className="w-6 h-6" />
+                </button>
+                {showBoard && (
+                  <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setShowBoard(false)}>
+                    <div className="absolute right-0 top-0 h-full w-[min(100%,380px)] bg-card shadow-lg" onClick={e => e.stopPropagation()}>
+                      <div className="p-3 flex justify-end">
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowBoard(false)}>关闭</button>
+                      </div>
+                      <div className="h-[calc(100%-48px)]">
+                        <ScoreKeeper activeExamId={activeExamId} refreshKey={scoreRefreshKey} />
+                      </div>
+                    </div>
                   </div>
-                  <div className="h-[calc(100%-48px)]">
-                    <ScoreKeeper activeExamId={activeExamId} refreshKey={scoreRefreshKey} />
-                  </div>
+                )}
+              </div>
+            )}
+
+            {mode === 'admin' && adminTab === 'annotation' && (
+              <div className="w-full flex-1 luxi-card overflow-hidden min-h-0 bg-raised">
+                <AnnotationEngine />
+              </div>
+            )}
+
+            {mode === 'admin' && adminTab === 'exams' && (
+              <div className="w-full flex-1 flex luxi-card overflow-hidden min-h-0 bg-raised">
+                <div className="flex-1 border-r border-line min-w-0">
+                  <TestAssembler editExamId={editExamId} onEditConsumed={() => setEditExamId(null)} />
+                </div>
+                <div className="w-[350px] bg-sunken flex-shrink-0">
+                  <ExamManager onEnterExam={jumpToTest} onEditExam={setEditExamId} />
                 </div>
               </div>
             )}
-          </div>
-        )}
 
-        {mode === 'admin' && adminTab === 'annotation' && (
-          <div className="w-full flex-1 bg-white shadow-xl rounded-xl overflow-hidden border border-gray-200 min-h-0">
-            <AnnotationEngine />
-          </div>
-        )}
+            {mode === 'admin' && adminTab === 'knowledge' && (
+              <div className="w-full flex-1 luxi-card overflow-hidden min-h-0 bg-raised">
+                <KnowledgeManager />
+              </div>
+            )}
 
-        {mode === 'admin' && adminTab === 'exams' && (
-          <div className="w-full flex-1 flex bg-white shadow-xl rounded-xl overflow-hidden border border-gray-200 min-h-0">
-            <div className="flex-1 border-r border-gray-200 min-w-0">
-              <TestAssembler editExamId={editExamId} onEditConsumed={() => setEditExamId(null)} />
-            </div>
-            <div className="w-[350px] bg-gray-50 flex-shrink-0">
-              <ExamManager onEnterExam={jumpToTest} onEditExam={setEditExamId} />
-            </div>
-          </div>
-        )}
+            {mode === 'admin' && adminTab === 'personnel' && (
+              <div className="w-full flex-1 luxi-card overflow-hidden min-h-0 bg-raised">
+                <PersonnelManager />
+              </div>
+            )}
 
-        {mode === 'admin' && adminTab === 'knowledge' && (
-          <div className="w-full flex-1 shadow-2xl rounded-xl overflow-hidden border border-gray-200 bg-white min-h-0">
-            <KnowledgeManager />
-          </div>
-        )}
+            {mode === 'admin' && adminTab === 'reports' && (
+              <div className="w-full flex-1 luxi-card overflow-hidden min-h-0 bg-raised">
+                <ReportsDashboard />
+              </div>
+            )}
 
-        {mode === 'admin' && adminTab === 'personnel' && (
-          <div className="w-full flex-1 shadow-2xl rounded-xl overflow-hidden border border-gray-200 bg-white min-h-0">
-            <PersonnelManager />
-          </div>
-        )}
+            {mode === 'admin' && adminTab === 'analytics' && (
+              <div className="w-full flex-1 luxi-card overflow-hidden min-h-0 bg-raised">
+                <AnalyticsDashboard />
+              </div>
+            )}
 
-        {mode === 'admin' && adminTab === 'reports' && (
-          <div className="w-full flex-1 shadow-2xl rounded-xl overflow-hidden border border-gray-200 bg-white min-h-0">
-            <ReportsDashboard />
-          </div>
-        )}
+            {mode === 'admin' && adminTab === 'inspector' && (
+              <div className="w-full flex-1 luxi-card overflow-hidden min-h-0 bg-raised">
+                <DBInspector />
+              </div>
+            )}
 
-        {mode === 'admin' && adminTab === 'analytics' && (
-          <div className="w-full flex-1 shadow-2xl rounded-xl overflow-hidden border border-gray-200 bg-white min-h-0">
-            <AnalyticsDashboard />
-          </div>
-        )}
-
-        {mode === 'admin' && adminTab === 'inspector' && (
-          <div className="w-full flex-1 shadow-2xl rounded-xl overflow-hidden border border-gray-200 bg-white min-h-0">
-            <DBInspector />
-          </div>
-        )}
-
-        {mode === 'admin' && adminTab === 'audit' && (
-          <div className="w-full flex-1 shadow-2xl rounded-xl overflow-hidden border border-gray-200 bg-white min-h-0">
-            <AuditDashboard />
-          </div>
-        )}
-      </main>
+            {mode === 'admin' && adminTab === 'audit' && (
+              <div className="w-full flex-1 luxi-card overflow-hidden min-h-0 bg-raised">
+                <AuditDashboard />
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
 
       <ModalShell
         open={showUserLogin}
@@ -445,15 +471,15 @@ function App() {
           <div className="flex justify-center mb-3">
             <SafeSpotMark size={48} />
           </div>
-          <h2 id="user-login-title" className="text-xl font-black text-gray-900">学员登录</h2>
-          <p className="text-xs text-gray-500 mt-1">使用「人员组织」中创建的账号密码</p>
+          <h2 id="user-login-title" className="text-[22px] font-semibold text-fg">学员登录</h2>
+          <p className="text-xs text-muted mt-1">使用「人员组织」中创建的账号密码</p>
         </div>
         <input
           required
           value={userLoginForm.username}
           onChange={e => setUserLoginForm({ ...userLoginForm, username: e.target.value })}
           placeholder="用户名"
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+          className="field"
           autoFocus
         />
         <input
@@ -462,17 +488,17 @@ function App() {
           value={userLoginForm.password}
           onChange={e => setUserLoginForm({ ...userLoginForm, password: e.target.value })}
           placeholder="密码"
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+          className="field"
         />
-        {userLoginError && <p className="text-sm text-red-500">{userLoginError}</p>}
+        {userLoginError && <p className="text-sm text-[var(--text-danger)]">{userLoginError}</p>}
         <button
           type="submit"
           disabled={userLoginLoading}
-          className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl"
+          className="btn btn-primary btn-lg w-full"
         >
           {userLoginLoading ? '登录中…' : '登录'}
         </button>
-        <p className="text-[10px] text-center text-gray-400">
+        <p className="text-[10px] text-center text-muted">
           演示账号 admin / admin123 · 也可在身份步骤访客手填
         </p>
         <LabProducer compact />
@@ -490,12 +516,15 @@ function App() {
 function AdminNavBtn({ active, onClick, icon: Icon, label, compact }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`flex items-center ${compact ? 'px-3 py-1.5' : 'px-4 py-2'} rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
-        active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-gray-500 hover:bg-gray-100'
+      className={`flex items-center w-full ${compact ? 'px-3 py-1.5 w-auto' : 'px-3 py-2'} rounded-[6px] text-[13px] font-medium transition-colors whitespace-nowrap ${
+        active
+          ? 'bg-primary text-white'
+          : 'text-secondary hover:bg-sunken hover:text-fg'
       }`}
     >
-      <Icon className="w-4 h-4 mr-1.5" /> {label}
+      <Icon className="w-4 h-4 mr-2 flex-shrink-0" /> {label}
     </button>
   );
 }

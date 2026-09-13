@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart3, Download, AlertTriangle, Filter } from 'lucide-react';
+import { ChartFootnote } from '../Ui/EmptyState';
 
 export default function ReportsDashboard() {
     const [examIds, setExamIds] = useState([]);
@@ -72,11 +73,11 @@ export default function ReportsDashboard() {
         <div className="h-full flex flex-col bg-white">
             <div className="p-4 border-b bg-gray-50 flex items-center justify-between flex-wrap gap-2">
                 <h2 className="text-lg font-bold flex items-center text-gray-800">
-                    <BarChart3 className="w-5 h-5 mr-2 text-indigo-500" /> 成绩报表
+                    <BarChart3 className="w-5 h-5 mr-2 text-accent" /> 成绩报表
                 </h2>
                 <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <span>通过率(≥60%)：<b className="text-indigo-600">{passRate()}</b></span>
-                    <button onClick={exportCsv} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold">
+                    <span>通过率(≥60%)：<b className="text-primary num">{passRate()}</b></span>
+                    <button onClick={exportCsv} className="btn btn-secondary btn-sm">
                         <Download className="w-3.5 h-3.5" /> 导出 CSV
                     </button>
                 </div>
@@ -119,7 +120,7 @@ export default function ReportsDashboard() {
                     姓名
                     <input value={userName} onChange={e => setUserName(e.target.value)} className="block mt-1 border rounded-lg px-2 py-1.5 text-sm" placeholder="模糊" />
                 </label>
-                <button onClick={load} className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold">
+                <button onClick={load} className="btn btn-primary">
                     <Filter className="w-4 h-4" /> 查询
                 </button>
             </div>
@@ -141,7 +142,7 @@ export default function ReportsDashboard() {
 
             <div className="flex-1 flex min-h-0">
                 <div className="flex-1 overflow-auto p-4">
-                    {loading ? <div className="text-gray-400 text-sm">加载中…</div> : (
+                    {loading ? <div className="text-muted text-sm">加载中…</div> : (
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="text-left text-gray-500 border-b sticky top-0 bg-white">
@@ -172,7 +173,7 @@ export default function ReportsDashboard() {
                                             {r.score}{r.paperTotal != null ? ` / ${r.paperTotal}` : ''}
                                         </td>
                                         <td className="py-2 pr-2">
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${r.mode === 'practice' ? 'bg-sky-100 text-sky-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${r.mode === 'practice' ? 'bg-sky-100 text-sky-700' : 'bg-accent/15 text-primary'}`}>
                                                 {r.mode === 'practice' ? '练习' : '考核'}
                                             </span>
                                         </td>
@@ -182,11 +183,17 @@ export default function ReportsDashboard() {
                                     </tr>
                                 ))}
                                 {!rows.length && (
-                                    <tr><td colSpan={7} className="py-12 text-center text-gray-400">无记录（删除试卷后成绩仍在此可查）</td></tr>
+                                    <tr><td colSpan={7} className="py-12 text-center text-muted">
+                                        <strong className="block text-fg">暂无成绩记录</strong>
+                                        <span className="text-xs">下一步：发布试卷并完成正式考核。删卷后历史成绩仍可查。</span>
+                                    </td></tr>
                                 )}
                             </tbody>
                         </table>
                     )}
+                    <ChartFootnote>
+                        口径：默认仅正式考核（mode=exam）；通过线为卷面得分率 ≥ 60%。知识薄弱仅统计遗漏 unfound，不含容错误点。本表为培训过程数据，不宜单独作为合规考核唯一依据。
+                    </ChartFootnote>
                 </div>
 
                 <div className="w-64 border-l p-4 overflow-y-auto bg-gray-50">
@@ -195,7 +202,7 @@ export default function ReportsDashboard() {
                     </h3>
                     <p className="text-[10px] text-gray-400 mb-3">仅统计遗漏 unfound（不含容错误点 miss）。完整分析见「学情分析」。</p>
                     {weak.length === 0 ? (
-                        <p className="text-xs text-gray-400">暂无知识遗漏数据。完成正式考核后出现。</p>
+                        <p className="text-xs text-muted">暂无知识遗漏数据。下一步：完成正式考核后此处列出高频遗漏条款。</p>
                     ) : weak.map((w, i) => (
                         <div key={w.key} className="mb-2 p-2 bg-white rounded-lg border text-xs">
                             <div className="flex justify-between font-bold text-gray-700">

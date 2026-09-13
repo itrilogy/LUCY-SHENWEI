@@ -1,43 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="审微 · ShenWei">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="审微 · ShenWei">
   <!--
-    审微 · ShenWei (SafeSpot) 产品 favicon（鹿溪 CI）
-    - 鹿溪绿底 #0D5E42：实验室品牌
-    - 光学分划 / 准星：审视细末
-    - 标题金隐患点 #F1C40F：命中热区
-    - 溪流 #00D2FF：防患于未萌
-    - 源启星：察于至微
+    审微 · ShenWei 产品方标（LUXI Design System v1.1 同构）
+    512 视口 · 鹿溪绿圆角砖 rx=112
+    业务图形：光学分划 + 圆心标题金隐患点（24 视口 glyph · stroke 1.7 等比）
+    底部水平溪流 · 右上金色五角源启星
   -->
   <defs>
-    <linearGradient id="sw-bg" x1="3" y1="2" x2="29" y2="30" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#127A55"/>
-      <stop offset="100%" stop-color="#0D5E42"/>
-    </linearGradient>
-    <linearGradient id="sw-stream" x1="5" y1="24" x2="27" y2="26" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#00D2FF" stop-opacity="0.25"/>
-      <stop offset="55%" stop-color="#00D2FF" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="#7CF0FF" stop-opacity="0.45"/>
+    <linearGradient id="sw-stream" x1="85" y1="0" x2="427" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D2FF" stop-opacity="0.2"/>
+      <stop offset="50%" stop-color="#00D2FF"/>
+      <stop offset="100%" stop-color="#7CF0FF" stop-opacity="0.55"/>
     </linearGradient>
   </defs>
 
-  <rect x="1" y="1" width="30" height="30" rx="8" fill="url(#sw-bg)"/>
-  <circle cx="9" cy="8" r="6.5" fill="#ffffff" opacity="0.06"/>
+  <rect width="512" height="512" rx="112" fill="#0D5E42"/>
 
-  <circle cx="16" cy="14.4" r="6.6" fill="#F5F7FA" opacity="0.96"/>
-  <circle cx="16" cy="14.4" r="6.6" fill="none" stroke="#0A3F2D" stroke-opacity="0.12"/>
-  <circle cx="16" cy="14.4" r="5.2" fill="none" stroke="#0D5E42" stroke-width="0.9"/>
-  <g stroke="#0D5E42" stroke-width="1.15" stroke-linecap="butt">
-    <line x1="16" y1="8.6" x2="16" y2="11.6"/>
-    <line x1="16" y1="17.2" x2="16" y2="20.2"/>
-    <line x1="8.6" y1="14.4" x2="11.6" y2="14.4"/>
-    <line x1="20.4" y1="14.4" x2="23.4" y2="14.4"/>
+  <g fill="none" stroke="#F5F7FA" stroke-width="19.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="256" cy="236" r="70"/>
+    <path d="M256 119v47M256 306v47M139 236h47M326 236h47"/>
   </g>
-  <circle cx="19.6" cy="16.8" r="1.85" fill="#F1C40F"/>
+  <circle cx="256" cy="236" r="19" fill="#F1C40F"/>
 
-  <path d="M5.5 26.2 C9 24.8, 12.5 27.1, 16 25.9 C19.2 24.8, 22.5 25.6, 26.5 24.9"
-        fill="none" stroke="url(#sw-stream)" stroke-width="1.45" stroke-linecap="round"/>
+  <rect x="85" y="448" width="342" height="32" rx="16" fill="url(#sw-stream)"/>
 
-  <g transform="translate(24.2 7.2)">
-    <path d="M0-2.1 L0.45-0.45 L2.1 0 L0.45 0.45 L0 2.1 L-0.45 0.45 L-2.1 0 L-0.45-0.45 Z" fill="#00D2FF"/>
-    <circle cx="0" cy="0" r="0.45" fill="#F5F7FA"/>
-  </g>
+  <polygon
+    fill="#F1C40F"
+    transform="translate(392 48)"
+    points="26,0 32,16.4 50,16.4 35.4,26.8 41,44 26,33.6 11,44 16.6,26.8 2,16.4 20,16.4"
+  />
 </svg>

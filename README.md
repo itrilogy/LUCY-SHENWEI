@@ -1,7 +1,7 @@
 <div align="center">
   <img src="client/public/safespot.svg" width="64" height="64" alt="审微 · ShenWei 产品标" />
   &nbsp;&nbsp;
-  <img src="client/public/brand/luxi-lab-main.svg" width="64" height="64" alt="鹿溪联合创新实验室 LUXI LAB" />
+  <img src="client/public/brand/luxi-lab.svg" width="64" height="64" alt="鹿溪联合创新实验室 LUXI LAB" />
 </div>
 
 <h1 align="center">审微 · ShenWei（安全隐患识别培训系统）</h1>
@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Matrix-具身%C2%B7二察-0D5E42" alt="matrix" />
   <img src="https://img.shields.io/badge/Product-审微%20ShenWei-2F7A73" alt="product" />
   <img src="https://img.shields.io/badge/Lab-鹿溪联合创新实验室-0D5E42" alt="lab" />
-  <img src="https://img.shields.io/badge/Version-V1.4--web-f1c40f" alt="version" />
+  <img src="https://img.shields.io/badge/Version-V1.4.1--web-f1c40f" alt="version" />
   <img src="https://img.shields.io/badge/Stack-React%2019%20%7C%20Express%205%20%7C%20SQLite-61DAFB" alt="stack" />
 </p>
 
@@ -39,7 +39,7 @@
 数据在本机 **SQLite + 本地图片**，默认不上云。  
 **不是安装包，也不是独立手机 App**——一台机器跑服务，Chrome / Edge 打开同一地址即可。窄屏为响应式，没有 `/m` 站点。
 
-点应用顶栏 Logo 可打开声明页。
+首次打开需在 LegalGate 显式确认数据不出厂（不可默认勾选）。点应用顶栏 Logo 可打开声明页。
 
 ---
 
@@ -47,11 +47,11 @@
 
 | 标识 | 预览 | 说明 | 源文件 |
 | :---: | :---: | :--- | :--- |
-| **产品方标** | <img src="client/public/safespot.svg" width="32" height="32" alt="审微" /> | 光学分划 / 观测场 + 琥珀色隐患点 | `client/public/safespot.svg` |
+| **产品方标** | <img src="client/public/safespot.svg" width="32" height="32" alt="审微" /> | 光学分划 + 圆心隐患点 + 水平溪流 + 源启星 | `client/public/safespot.svg` |
 | **产品字锁** | <img src="client/public/safespot-logo.svg" width="200" alt="审微 · ShenWei 字锁" /> | 横版产品字锁 | `client/public/safespot-logo.svg` |
-| **实验室主标** | <img src="client/public/brand/luxi-lab-main.svg" width="32" height="32" alt="LUXI LAB" /> | 官方 LUXI LAB（唯一权威源） | `client/public/brand/luxi-lab-main.svg` |
+| **实验室 LOGO** | <img src="client/public/brand/luxi-lab.svg" width="32" height="32" alt="LUXI LAB" /> | 符号标 · 浅色绿+蓝 / 深色白+蓝 | `client/public/brand/luxi-lab.svg` |
 
-产品标语义：光学分划 / 观测场 + 琥珀色隐患点。实验室主标只认官方鹿标，不用几何实验稿。说明见 [`client/public/brand/README.md`](./client/public/brand/README.md)。
+产品标语义：光学分划 + 标题金隐患点。界面实验室位用符号标；写实主标 `luxi-lab-main.svg` 仅正式件，不进产品 UI / README / 关于 / 页脚。说明见 [`client/public/brand/README.md`](./client/public/brand/README.md)。视觉对齐 [LUXI Design System v1.1](https://github.com/itrilogy/LUCY-DESIGN)。
 
 **色板（LUXI CI）**
 
@@ -227,7 +227,7 @@ LUCY-SHENWEI/
 ---
 
 <div align="center">
-  <img src="client/public/brand/luxi-lab-main.svg" width="48" height="48" alt="LUXI LAB" />
+  <img src="client/public/brand/luxi-lab.svg" width="48" height="48" alt="LUXI LAB" />
   <p><strong>审微 · ShenWei</strong> · 察于至微，防于未萌</p>
   <p>© 鹿溪联合创新实验室 · LUXI Joint Innovation Lab</p>
   <p><em>林深见鹿，源启清溪 · Deep Insights, Evolutionary Origin.</em></p>
