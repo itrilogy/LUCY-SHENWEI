@@ -4,6 +4,7 @@ import {
     RefreshCw, AlertTriangle, TrendingUp, Play, RotateCcw, Filter
 } from 'lucide-react';
 import { ChartFootnote, EmptyState } from '../Ui/EmptyState';
+import { api } from '../../lib/api';
 
 /* ========== 轻量 SVG 图表 ========== */
 function BarChart({ items, maxHint, color = 'var(--product-accent)', height = 180, unit = '' }) {
@@ -139,8 +140,7 @@ export default function AnalyticsDashboard() {
     const deptOptions = useMemo(() => buildDeptTreeOptions(departments), [departments]);
 
     useEffect(() => {
-        fetch('/api/admin/analytics/filters')
-            .then(r => r.json())
+        api.get('/api/admin/analytics/filters')
             .then(f => {
                 setExams(f.exams || []);
                 setDepartments(f.departments || []);
@@ -165,9 +165,7 @@ export default function AnalyticsDashboard() {
             if (next.departmentId) qs.set('departmentId', next.departmentId);
             qs.set('includeChildren', next.includeChildren ? '1' : '0');
             if (next.rangeDays > 0) qs.set('from', String(Date.now() - next.rangeDays * 86400000));
-            const res = await fetch(`/api/admin/analytics/overview?${qs}`);
-            if (!res.ok) throw new Error('加载学情失败');
-            const ov = await res.json();
+            const ov = await api.get(`/api/admin/analytics/overview?${qs}`);
             setData(ov);
             setApplied(next);
             setDirty(false);

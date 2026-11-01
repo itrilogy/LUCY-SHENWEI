@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AlertTriangle, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ShieldCheck, Target } from 'lucide-react';
 import { getGrade } from '../../lib/grade';
 import { api } from '../../lib/api';
 import { MAX_MISS, parseExamSettings } from '../../lib/examSettings';
+import { embedBridge } from '../../lib/embedBridge';
 import ExamLobby from './ExamLobby';
 import ExamResult from './ExamResult';
 import ExamToast from './ExamToast';
@@ -14,7 +15,10 @@ export default function InteractionJudge({
     onAutoStartConsumed,
     onScoreSubmitted,
     currentUser = null,
-    onRequestLogin
+    onRequestLogin,
+    embedded = false,
+    autoStart = false,
+    initialCandidate = null
 }) {
     const [allExams, setAllExams] = useState([]);
     const [phase, setPhase] = useState('lobby'); // lobby | testing | result
@@ -79,6 +83,15 @@ export default function InteractionJudge({
         setEmployeeId(currentUser.employeeNo || '');
     }, [currentUser]);
 
+    // 嵌入模式初始身份注入
+    useEffect(() => {
+        if (!initialCandidate) return;
+        if (initialCandidate.userName && !userName) setUserName(initialCandidate.userName);
+        if (initialCandidate.department && !department) setDepartment(initialCandidate.department);
+        if (initialCandidate.employeeId && !employeeId) setEmployeeId(initialCandidate.employeeId);
+        if (initialCandidate.mode) setAttemptMode(initialCandidate.mode);
+    }, [initialCandidate]);
+
     // 整卷倒计时（考核模式 + 限时 > 0）
     useEffect(() => {
         if (phase !== 'testing' || !timeLeft || timeLeft <= 0) return;
@@ -97,18 +110,71 @@ export default function InteractionJudge({
         return () => clearInterval(t);
     }, [phase, timeLeft != null && timeLeft > 0]);
 
+    // 试卷自动选择与深链开考
     useEffect(() => {
-        if (autoStartExamId && allExams.length > 0) {
-            const match = allExams.find(e => (e.examName || e.name) === autoStartExamId);
+        if (!allExams.length) return;
+        const candidateName = userName.trim() || initialCandidate?.userName?.trim() || '';
+
+        // 若指定了试卷
+        if (autoStartExamId) {
+            const match = allExams.find(e => (e.examName || e.name || e.id) === autoStartExamId);
             if (match) {
                 setSelectedExam(match);
-                if (onExamChange) onExamChange(match.examName || match.name);
-                setLobbyStep(2);
-                setPhase('lobby');
+                if (onExamChange) onExamChange(match.examName || match.name || match.id);
+                if (autoStart && candidateName && phase === 'lobby' && !attemptId) {
+                    executeStart(match);
+                } else if (phase === 'lobby') {
+                    setLobbyStep(2);
+                }
                 if (onAutoStartConsumed) onAutoStartConsumed();
+                return;
             }
         }
-    }, [autoStartExamId, allExams]);
+
+        // 若开启了 autoStart 但未指定特定试卷，默认以第一套已发布试卷直接开考
+        if (autoStart && candidateName && phase === 'lobby' && !attemptId && selectedExam) {
+            executeStart(selectedExam);
+        }
+    }, [autoStartExamId, allExams, autoStart, userName, initialCandidate, phase, attemptId, selectedExam]);
+
+    // 监听嵌入协议套接字指令 (SAFESPOT_START, SAFESPOT_FORCE_SUBMIT, SAFESPOT_INIT)
+    useEffect(() => {
+        const unsubs = [
+            embedBridge.on('SAFESPOT_FORCE_SUBMIT', () => {
+                if (phase === 'testing' && attemptId) {
+                    submitAttempt();
+                }
+            }),
+            embedBridge.on('SAFESPOT_START', (payload) => {
+                const targetExam = payload?.examId
+                    ? allExams.find(e => (e.id || e.name || e.examName) === payload.examId)
+                    : selectedExam;
+                if (targetExam) {
+                    executeStart(targetExam);
+                }
+            }),
+            embedBridge.on('SAFESPOT_INIT', (payload) => {
+                if (!payload) return;
+                if (payload.userName) setUserName(payload.userName);
+                if (payload.department) setDepartment(payload.department);
+                if (payload.employeeId) setEmployeeId(payload.employeeId);
+                if (payload.mode) setAttemptMode(payload.mode);
+                if (payload.examId) {
+                    const match = allExams.find(e => (e.id || e.name || e.examName) === payload.examId);
+                    if (match) setSelectedExam(match);
+                }
+                if (payload.autoStart) {
+                    const targetExam = payload.examId
+                        ? allExams.find(e => (e.id || e.name || e.examName) === payload.examId)
+                        : (selectedExam || allExams[0]);
+                    if (targetExam) executeStart(targetExam);
+                }
+            })
+        ];
+        return () => {
+            unsubs.forEach(fn => fn && fn());
+        };
+    }, [allExams, selectedExam, phase, attemptId, userName, department, employeeId, attemptMode]);
 
     const pushLog = (entry) => {
         const row = {
@@ -123,8 +189,7 @@ export default function InteractionJudge({
 
     const fetchInitData = async () => {
         try {
-            const kRes = await fetch('/api/knowledge');
-            const kData = await kRes.json();
+            const kData = await api.get('/api/knowledge');
             const dict = {};
             kData.knowledgeTree?.forEach(sceneObj => {
                 sceneObj.types?.forEach(typeObj => {
@@ -139,12 +204,26 @@ export default function InteractionJudge({
             const exams = (Array.isArray(rawExams) ? rawExams : []).filter(e => e.status === 'published');
             setAllExams(exams);
             if (exams.length > 0 && !selectedExam) {
-                setSelectedExam(exams[0]);
-                if (onExamChange) onExamChange(exams[0].examName || exams[0].name);
+                const initMatch = autoStartExamId
+                    ? exams.find(e => (e.examName || e.name || e.id) === autoStartExamId)
+                    : null;
+                const chosen = initMatch || exams[0];
+                setSelectedExam(chosen);
+                if (onExamChange) onExamChange(chosen.examName || chosen.name || chosen.id);
             }
+            embedBridge.emitReady({
+                exams: exams.map(e => ({
+                    id: e.id || e.name,
+                    examName: e.examName,
+                    slidesCount: e.slides?.length || 0,
+                    totalScore: e.totalScore || e.total_score || 100,
+                    timeLimitSec: e.timeLimitSec || e.time_limit_sec || 0
+                }))
+            });
         } catch (e) {
             console.error(e);
             showToast('加载考卷失败，请确认后端已启动', 'error');
+            embedBridge.emitError(e);
         }
     };
 
@@ -164,14 +243,18 @@ export default function InteractionJudge({
     };
 
     const executeStart = async (examObj) => {
-        if (!userName.trim()) {
+        const candidateName = userName.trim() || initialCandidate?.userName?.trim() || '';
+        if (!candidateName) {
             showToast('请先填写姓名', 'error');
             setLobbyStep(2);
             return;
         }
+        if (!userName.trim() && candidateName) {
+            setUserName(candidateName);
+        }
         const testPaper = (examObj.slides || []).map(name => ({
             name,
-            url: `/assets/raw/${name}`
+            url: `/assets/raw/${encodeURIComponent(name)}`
         }));
         if (testPaper.length === 0) {
             showToast('该试卷没有题目', 'error');
@@ -180,17 +263,22 @@ export default function InteractionJudge({
 
         try {
             const attempt = await api.post('/api/exam-sessions', {
-                examId: examObj.name || examObj.examName,
+                examId: examObj.id || examObj.name || examObj.examName,
                 mode: attemptMode,
-                userName: userName.trim(),
-                department: department.trim() || undefined,
-                employeeId: employeeId.trim() || undefined
+                userName: candidateName,
+                department: (department.trim() || initialCandidate?.department?.trim()) || undefined,
+                employeeId: (employeeId.trim() || initialCandidate?.employeeId?.trim()) || undefined
             });
             const settings = parseExamSettings(examObj);
             setExamSettings(settings);
-            setExamId(attempt.examId || examObj.examName || examObj.name);
+            setExamId(attempt.examId || examObj.examName || examObj.name || examObj.id);
             setAttemptId(attempt.id);
-            setImages(testPaper);
+
+            // 优先使用服务端返回的试题原图映射序列
+            const slidesFromAttempt = (attempt.slides && attempt.slides.length > 0)
+                ? attempt.slides.map(s => ({ name: s.assetId, url: s.url }))
+                : testPaper;
+            setImages(slidesFromAttempt);
             setCurrentIndex(0);
             setTotalScore(attempt.score || 0);
             totalScoreRef.current = attempt.score || 0;
@@ -207,9 +295,27 @@ export default function InteractionJudge({
             else setTimeLeft(null);
             applySlideFromServer(attempt.slides?.[0]);
             setPhase('testing');
-            if (onExamStart) onExamStart(examObj.examName || examObj.name);
+            if (onExamStart) onExamStart(examObj.examName || examObj.name || examObj.id);
+
+            // 广播开考事件至外部集成框架
+            embedBridge.emitStarted({
+                attemptId: attempt.id,
+                examId: attempt.examId,
+                examName: attempt.examName || examObj.examName,
+                mode: attempt.mode,
+                candidate: {
+                    userName: candidateName,
+                    department: department.trim() || initialCandidate?.department || '',
+                    employeeId: employeeId.trim() || initialCandidate?.employeeId || ''
+                },
+                totalQuestions: slidesFromAttempt.length,
+                paperTotal: attempt.paperTotal,
+                timeLimitSec: attempt.timeLimitSec,
+                startedAt: attempt.startedAt
+            });
         } catch (e) {
             showToast(e.message || '开考失败', 'error');
+            embedBridge.emitError(e);
         }
     };
 
@@ -241,6 +347,14 @@ export default function InteractionJudge({
                     applySlideFromServer(att.slides?.[nextIdx]);
                     setTotalScore(att.score || 0);
                     if (att.timeLeft != null) setTimeLeft(att.timeLeft);
+                    embedBridge.emitProgress({
+                        attemptId,
+                        currentIndex: nextIdx,
+                        totalQuestions: images.length,
+                        currentScore: att.score || 0,
+                        timeLeft: att.timeLeft,
+                        slideAssetId: images[nextIdx]?.name
+                    });
                 } catch (e) {
                     showToast(e.message || '加载下一题失败', 'error');
                 }
@@ -273,6 +387,20 @@ export default function InteractionJudge({
             });
             setPhase('result');
             if (onScoreSubmitted) onScoreSubmitted({ examId, score });
+
+            embedBridge.emitSubmit({
+                attemptId,
+                examId,
+                score,
+                paperTotal,
+                grade,
+                passed: (score / paperTotal) >= 0.6,
+                duration: body.duration,
+                pri: body.pri,
+                invalidClicks: body.invalidClicks,
+                candidate: { userName, department, employeeId },
+                missedCount: (body.missed || []).length
+            });
         } catch (e) {
             showToast(e.message || '成绩上传异常', 'error');
         } finally {
@@ -308,6 +436,18 @@ export default function InteractionJudge({
             if (body.timeLeft != null) setTimeLeft(body.timeLeft);
             if (body.slide) applySlideFromServer(body.slide);
             triggerMomentaryEffect(uX, uY, body.result === 'hit' ? 'hit' : 'miss');
+
+            embedBridge.emitProgress({
+                attemptId,
+                currentIndex,
+                totalQuestions: images.length,
+                currentScore: body.score != null ? body.score : totalScore,
+                timeLeft: body.timeLeft != null ? body.timeLeft : timeLeft,
+                foundCount: body.slide?.foundCount,
+                missCount: body.slide?.missCount,
+                lastClickResult: body.result,
+                slideAssetId: activeImage?.name
+            });
         } catch (err) {
             showToast(err.message || '判定失败', 'error');
         }
@@ -387,16 +527,20 @@ export default function InteractionJudge({
     // 考试中无图
     if (!activeImage) {
         return (
-            <div className="empty-panel">
-                <strong>检测不到题目</strong>
-                <span>下一步：返回大厅重新选择试卷。</span>
+            <div className="empty-panel p-8 text-center flex-1 flex flex-col items-center justify-center">
+                <Target className="w-12 h-12 text-muted mb-3 opacity-30" />
+                <strong className="text-fg text-base">检测不到题目</strong>
+                <span className="text-muted text-sm mt-1">下一步：返回大厅重新选择试卷。</span>
+                <button type="button" onClick={() => resetToLobby(true)} className="btn btn-secondary btn-sm mt-4">
+                    返回大厅
+                </button>
             </div>
         );
     }
 
     return (
-        <div className="flex-1 w-full flex bg-gray-900 relative">
-            <div className="flex-1 relative flex items-center justify-center bg-black/90 p-4 border-r border-gray-700">
+        <div className="flex-1 w-full h-full min-h-0 flex flex-col md:flex-row bg-gray-900 relative overflow-hidden">
+            <div className="flex-1 relative flex items-center justify-center bg-black/90 p-2 sm:p-4 border-r border-gray-700 min-h-0 min-w-0 overflow-hidden">
                 <div className="absolute top-4 left-4 bg-white/10 backdrop-blur-md px-4 py-2 rounded-lg flex space-x-4 border border-white/20 z-10">
                     <div className="text-white">
                         <span className="text-sm text-gray-400">本题隐患:</span>

@@ -16,7 +16,7 @@ describe('buildPointScoreMap', () => {
         assert.equal(map.c, 33);
     });
 
-    it('weighted last point absorbs remainder', () => {
+    it('weighted distributes remainders smoothly via largest remainder method', () => {
         const map = buildPointScoreMap(
             [
                 { id: 'a', scoreWeight: 1 },
@@ -26,9 +26,24 @@ describe('buildPointScoreMap', () => {
             { total_score: 100, scoring_rule: 'weighted' }
         );
         assert.equal(map.a + map.b + map.c, 100);
-        assert.equal(map.a, 33);
+        assert.equal(map.a, 34);
         assert.equal(map.b, 33);
-        assert.equal(map.c, 34);
+        assert.equal(map.c, 33);
+    });
+
+    it('weighted handles multi-item remainder distribution without end-point clustering', () => {
+        // 15 个相同权重的隐患点，总分 100 分
+        const points = Array.from({ length: 15 }, (_, i) => ({ id: `p_${i + 1}`, scoreWeight: 10 }));
+        const map = buildPointScoreMap(points, { total_score: 100, scoring_rule: 'weighted' });
+        const values = Object.values(map);
+        const sum = values.reduce((acc, v) => acc + v, 0);
+        assert.equal(sum, 100);
+        const minVal = Math.min(...values);
+        const maxVal = Math.max(...values);
+        // 最大分差绝对不超过 1 分（6分与7分），绝不允许旧逻辑末位 16 分的失真
+        assert.ok(maxVal - minVal <= 1);
+        assert.equal(minVal, 6);
+        assert.equal(maxVal, 7);
     });
 });
 

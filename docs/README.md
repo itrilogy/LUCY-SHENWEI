@@ -14,6 +14,7 @@
 | [PLAN.md](./PLAN.md) | **规划真源**：分期、任务、验收 | 开发 |
 | [PROCESS.md](./PROCESS.md) | **过程流水**：每次改了什么、哪些文件 | 开发 |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 现状架构与目标 Web 架构 | 开发 |
+| [ENGINEERING_AND_PRODUCT_AUDIT.md](./ENGINEERING_AND_PRODUCT_AUDIT.md) | **工程与产品深度评估审计及演进方案** | 架构 / 产品 / 开发 |
 | [DEPLOY.md](./DEPLOY.md) | 开发 / 单端口生产 / Docker / 备份 | 实施 |
 | [USER_GUIDE.md](./USER_GUIDE.md) | 管理端与学员端操作步骤 | 安环员 / 学员 |
 | [ANALYTICS.md](./ANALYTICS.md) | 学情指标、PRI、过滤语义 | 开发 / 培训主管 |

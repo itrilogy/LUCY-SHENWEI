@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Layers, FilePlus2, Search, Eye } from 'lucide-react';
+import { api } from '../../lib/api';
 
 export default function TestAssembler({ editExamId = null, onEditConsumed }) {
     const [images, setImages] = useState([]);
@@ -71,32 +72,34 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
     }, [editExamId]);
 
     const fetchImages = async () => {
-        const res = await fetch('/api/assets');
-        const data = await res.json();
-        const list = data.data || [];
-        // 以实际标注条数为准（兼容 is_annotated 脏标记）
-        const annotated = list.filter(img =>
-            img.isAnnotated || (img.meta?.items && img.meta.items.length > 0)
-        );
-        setImages(annotated);
-        if (list.length > 0 && annotated.length === 0) {
-            console.warn('[组卷] 有图库素材但无有效标注。请先在「图库标注」中框选并保存隐患点。');
+        try {
+            const data = await api.get('/api/assets');
+            const list = data.data || [];
+            const annotated = list.filter(img =>
+                img.isAnnotated || (img.meta?.items && img.meta.items.length > 0)
+            );
+            setImages(annotated);
+            if (list.length > 0 && annotated.length === 0) {
+                console.warn('[组卷] 有图库素材但无有效标注。请先在「图库标注」中框选并保存隐患点。');
+            }
+        } catch (e) {
+            console.error('获取图库素材失败', e);
         }
     };
 
     const fetchKnowledge = async () => {
-        const res = await fetch('/api/knowledge');
-        const data = await res.json();
-        setKnowledgeTree(data.knowledgeTree || []);
+        try {
+            const data = await api.get('/api/knowledge');
+            setKnowledgeTree(data.knowledgeTree || []);
+        } catch (e) {
+            console.error('获取知识库失败', e);
+        }
     };
 
     const loadExam = async (id) => {
         try {
-            const exam = await fetch(`/api/exams/${encodeURIComponent(id)}`).then((r) => {
-                if (!r.ok) throw new Error('加载试卷失败');
-                return r.json();
-            });
-            const lib = await fetch('/api/assets').then((r) => r.json());
+            const exam = await api.get(`/api/exams/${encodeURIComponent(id)}`);
+            const lib = await api.get('/api/assets');
             const list = lib.data || [];
             const byName = new Map(list.map((i) => [i.name, i]));
             const selected = (exam.slides || []).map((name) => byName.get(name)).filter(Boolean);
@@ -152,23 +155,12 @@ export default function TestAssembler({ editExamId = null, onEditConsumed }) {
                 scoring_rule: scoringRule,
                 time_limit_sec: Number(timeLimitSec) || 0
             };
-            const res = await fetch('/api/exams/publish', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                const body = await res.json().catch(() => ({}));
-                if (body.examId) setExamId(body.examId);
-                const actionText = status === 'published' ? '发布' : '保存';
-                showToast(`试卷【${paperName}】${actionText}成功`);
-            } else {
-                const err = await res.json().catch(() => ({}));
-                showToast(err.error || '试卷状态更新失败', 'error');
-            }
+            const body = await api.post('/api/exams/publish', payload);
+            if (body.examId) setExamId(body.examId);
+            const actionText = status === 'published' ? '发布' : '保存';
+            showToast(`试卷【${paperName}】${actionText}成功`);
         } catch (err) {
-            showToast('网络传输错误', 'error');
+            showToast(err.message || '试卷保存失败', 'error');
         } finally {
             setPublishing(false);
         }

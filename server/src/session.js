@@ -5,6 +5,55 @@ const COOKIE = 'safespot_sid';
 const TTL_MS = 12 * 60 * 60 * 1000;
 const STAFF_ROLES = new Set(['admin', 'trainer']);
 
+// 会话短期内存缓存：防止高频请求击穿 SQLite（5 秒 TTL，容量 5000）
+const sessionCache = new Map();
+const SESSION_CACHE_TTL_MS = 5000;
+const MAX_CACHE_ENTRIES = 5000;
+
+function getCachedSession(sid) {
+    const entry = sessionCache.get(sid);
+    if (!entry) return null;
+    const now = Date.now();
+    if (now - entry.cachedAt > SESSION_CACHE_TTL_MS || now > entry.expiresAt) {
+        sessionCache.delete(sid);
+        return null;
+    }
+    return entry.user;
+}
+
+function setCachedSession(sid, user, expiresAt) {
+    if (sessionCache.size >= MAX_CACHE_ENTRIES) {
+        const iter = sessionCache.keys();
+        for (let i = 0; i < 1000; i++) {
+            const next = iter.next();
+            if (next.done) break;
+            sessionCache.delete(next.value);
+        }
+    }
+    sessionCache.set(sid, {
+        user,
+        expiresAt,
+        cachedAt: Date.now()
+    });
+}
+
+function invalidateSession(sid) {
+    if (sid) sessionCache.delete(sid);
+}
+
+function invalidateUserSessions(userId) {
+    if (!userId) return;
+    for (const [sid, entry] of sessionCache.entries()) {
+        if (entry.user && entry.user.id === userId) {
+            sessionCache.delete(sid);
+        }
+    }
+}
+
+function clearAllSessionCache() {
+    sessionCache.clear();
+}
+
 function cookieSecret() {
     return process.env.SESSION_SECRET || 'dev-only-secret';
 }
@@ -55,6 +104,16 @@ function attachSession(req, res, next) {
         const raw = parseCookies(req.headers.cookie || '')[COOKIE];
         const sid = unsign(raw);
         if (!sid) return next();
+
+        // 1. 优先查短期内存缓存（5 秒 TTL），避免高频请求重复打入 SQLite
+        const cachedUser = getCachedSession(sid);
+        if (cachedUser) {
+            req.sessionId = sid;
+            req.user = cachedUser;
+            return next();
+        }
+
+        // 2. 缓存未命中时查库
         const db = getDB();
         const row = db.prepare('SELECT * FROM auth_sessions WHERE id = ? AND expires_at > ?').get(sid, Date.now());
         if (!row || !row.user_id) return next();
@@ -70,6 +129,9 @@ function attachSession(req, res, next) {
         if (!profile || profile.status !== 'active') return next();
         req.sessionId = sid;
         req.user = publicUser(profile);
+
+        // 3. 写入内存短缓存
+        setCachedSession(sid, req.user, row.expires_at);
     } catch (e) {
         console.error('[session]', e.message);
     }
@@ -93,14 +155,17 @@ function createSession(res, user) {
     const db = getDB();
     const id = crypto.randomBytes(24).toString('hex');
     const now = Date.now();
+    const expiresAt = now + TTL_MS;
     db.prepare('INSERT INTO auth_sessions (id, user_id, role, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
-        .run(id, user.id, user.role, now, now + TTL_MS);
+        .run(id, user.id, user.role, now, expiresAt);
     res.setHeader('Set-Cookie', cookieHeader(encodeURIComponent(sign(id)), Math.floor(TTL_MS / 1000)));
+    setCachedSession(id, user, expiresAt);
     return id;
 }
 
 function clearSession(req, res) {
     if (req.sessionId) {
+        invalidateSession(req.sessionId);
         try { getDB().prepare('DELETE FROM auth_sessions WHERE id = ?').run(req.sessionId); } catch (_) { /* ignore */ }
     }
     res.setHeader('Set-Cookie', cookieHeader('', 0));
@@ -144,6 +209,7 @@ function isPublicApi(method, rawPath) {
     if (method === 'GET' && path === '/knowledge') return true;
     if (method === 'GET' && (path === '/exams' || path === '/exams/latest')) return true;
     if (method === 'GET' && path === '/session/records/latest') return true;
+    if (path.startsWith('/embed/')) return true;
     if (method === 'POST' && path === '/exam-sessions') return true;
     if (method === 'GET' && /^\/exam-sessions\/[^/]+$/.test(path)) return true;
     if (method === 'POST' && /^\/exam-sessions\/[^/]+\/(click|submit|advance)$/.test(path)) return true;
@@ -154,6 +220,9 @@ module.exports = {
     attachSession,
     createSession,
     clearSession,
+    invalidateSession,
+    invalidateUserSessions,
+    clearAllSessionCache,
     publicUser,
     isStaff,
     isAdmin,

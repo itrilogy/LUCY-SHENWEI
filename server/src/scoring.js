@@ -17,21 +17,40 @@ function buildPointScoreMap(allPoints, settings = {}) {
         return scoreMap;
     }
 
+    // weighted：最大余额法（Hamilton-Hare Method），消除末位余数堆积失真
     const totalWeight = allPoints.reduce((sum, p) => sum + (Number(p.scoreWeight) || 0), 0);
     if (totalWeight <= 0) {
         allPoints.forEach((p) => { scoreMap[p.id] = 0; });
         return scoreMap;
     }
 
-    let runningSum = 0;
-    allPoints.forEach((p, idx) => {
-        if (idx === allPoints.length - 1) {
-            scoreMap[p.id] = paperTotal - runningSum;
-        } else {
-            const score = Math.floor(((Number(p.scoreWeight) || 0) / totalWeight) * paperTotal);
-            scoreMap[p.id] = score;
-            runningSum += score;
-        }
+    const items = allPoints.map((p, index) => {
+        const exact = ((Number(p.scoreWeight) || 0) / totalWeight) * paperTotal;
+        const integerPart = Math.floor(exact);
+        return {
+            id: p.id,
+            index,
+            integerPart,
+            remainder: exact - integerPart
+        };
+    });
+
+    let currentSum = items.reduce((sum, it) => sum + it.integerPart, 0);
+    let diff = paperTotal - currentSum;
+
+    // 稳定排序：余数从大到小，余数相同时优先按原始索引保序
+    const sorted = [...items].sort((a, b) => {
+        const diffRem = b.remainder - a.remainder;
+        if (Math.abs(diffRem) > 1e-9) return diffRem;
+        return a.index - b.index;
+    });
+
+    for (let i = 0; i < sorted.length && diff > 0; i++, diff--) {
+        sorted[i].integerPart += 1;
+    }
+
+    items.forEach((it) => {
+        scoreMap[it.id] = it.integerPart;
     });
     return scoreMap;
 }

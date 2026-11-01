@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollText, Play, Trash2, Globe, Archive, Pencil, CalendarClock } from 'lucide-react';
 import ConfirmDialog from '../ConfirmDialog';
+import { api } from '../../lib/api';
 
 export default function ExamManager({ onEnterExam, onEditExam }) {
     const [exams, setExams] = useState([]);
@@ -14,8 +15,8 @@ export default function ExamManager({ onEnterExam, onEditExam }) {
     const fetchExams = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/exams');
-            if (res.ok) setExams(await res.json() || []);
+            const data = await api.get('/api/exams');
+            setExams(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error('获取试卷列表失败', e);
         } finally {
@@ -34,8 +35,12 @@ export default function ExamManager({ onEnterExam, onEditExam }) {
             danger: true,
             onConfirm: async () => {
                 setConfirm({ open: false });
-                const res = await fetch(`/api/exams/${encodeURIComponent(id)}`, { method: 'DELETE' });
-                if (res.ok) fetchExams();
+                try {
+                    await api.del(`/api/exams/${encodeURIComponent(id)}`);
+                    fetchExams();
+                } catch (e) {
+                    console.error('删除试卷失败', e);
+                }
             }
         });
     };
@@ -43,52 +48,58 @@ export default function ExamManager({ onEnterExam, onEditExam }) {
     const toggleStatus = async (exam) => {
         const id = exam.name || exam.examName;
         const newStatus = exam.status === 'published' ? 'draft' : 'published';
-        const res = await fetch(`/api/exams/${encodeURIComponent(id)}/status`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus })
-        });
-        if (res.ok) fetchExams();
+        try {
+            await api.put(`/api/exams/${encodeURIComponent(id)}/status`, { status: newStatus });
+            fetchExams();
+        } catch (e) {
+            console.error('切换试卷状态失败', e);
+        }
     };
 
     const openAssign = async (exam) => {
         const id = exam.name || exam.examName;
-        const [d, a] = await Promise.all([
-            fetch('/api/org/departments').then((r) => r.json()),
-            fetch(`/api/admin/assignments?examId=${encodeURIComponent(id)}`).then((r) => r.json())
-        ]);
-        setDepts(Array.isArray(d) ? d : []);
-        setAssignments(Array.isArray(a) ? a : []);
-        setAssignForm({ departmentIds: [], dueAt: '', required: true });
-        setAssignExam(exam);
+        try {
+            const [d, a] = await Promise.all([
+                api.get('/api/org/departments'),
+                api.get(`/api/admin/assignments?examId=${encodeURIComponent(id)}`)
+            ]);
+            setDepts(Array.isArray(d) ? d : []);
+            setAssignments(Array.isArray(a) ? a : []);
+            setAssignForm({ departmentIds: [], dueAt: '', required: true });
+            setAssignExam(exam);
+        } catch (e) {
+            console.error('获取指派信息失败', e);
+        }
     };
 
     const saveAssign = async () => {
         const exam = assignExam;
         const id = exam.name || exam.examName;
-        const res = await fetch('/api/admin/assignments', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        try {
+            await api.post('/api/admin/assignments', {
                 examId: id,
                 dueAt: assignForm.dueAt ? new Date(assignForm.dueAt).getTime() : null,
                 required: assignForm.required,
                 departmentIds: assignForm.departmentIds
-            })
-        });
-        if (res.ok) {
-            const a = await fetch(`/api/admin/assignments?examId=${encodeURIComponent(id)}`).then((r) => r.json());
+            });
+            const a = await api.get(`/api/admin/assignments?examId=${encodeURIComponent(id)}`);
             setAssignments(Array.isArray(a) ? a : []);
             setAssignForm({ departmentIds: [], dueAt: '', required: true });
+        } catch (e) {
+            console.error('保存考试指派失败', e);
         }
     };
 
     const removeAssign = async (asgId) => {
-        await fetch(`/api/admin/assignments/${encodeURIComponent(asgId)}`, { method: 'DELETE' });
-        if (assignExam) {
-            const id = assignExam.name || assignExam.examName;
-            const a = await fetch(`/api/admin/assignments?examId=${encodeURIComponent(id)}`).then((r) => r.json());
-            setAssignments(Array.isArray(a) ? a : []);
+        try {
+            await api.del(`/api/admin/assignments/${encodeURIComponent(asgId)}`);
+            if (assignExam) {
+                const id = assignExam.name || assignExam.examName;
+                const a = await api.get(`/api/admin/assignments?examId=${encodeURIComponent(id)}`);
+                setAssignments(Array.isArray(a) ? a : []);
+            }
+        } catch (e) {
+            console.error('移除指派失败', e);
         }
     };
 
@@ -109,9 +120,12 @@ export default function ExamManager({ onEnterExam, onEditExam }) {
                     <button
                         type="button"
                         onClick={async () => {
-                            const r = await fetch('/api/admin/bank/seed-starter', { method: 'POST' });
-                            const d = await r.json();
-                            if (d.examId || d.skipped) fetchExams();
+                            try {
+                                const d = await api.post('/api/admin/bank/seed-starter');
+                                if (d.examId || d.skipped) fetchExams();
+                            } catch (e) {
+                                console.error('预置示范卷失败', e);
+                            }
                         }}
                         className="text-xs font-bold text-emerald-600"
                     >

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Medal } from 'lucide-react';
 import { EmptyState, LoadingState } from '../Ui/EmptyState';
+import { api } from '../../lib/api';
 
 export default function ScoreKeeper({ activeExamId, refreshKey = 0 }) {
     const [records, setRecords] = useState([]);
@@ -13,11 +14,8 @@ export default function ScoreKeeper({ activeExamId, refreshKey = 0 }) {
             setLoading(true);
             const params = new URLSearchParams({ mode });
             if (activeExamId) params.set('examId', activeExamId);
-            const res = await fetch(`/api/session/records/latest?${params}`);
-            if (res.ok) {
-                const data = await res.json();
-                setRecords(data || []);
-            }
+            const data = await api.get(`/api/session/records/latest?${params}`);
+            setRecords(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error('获取成绩列表失败', e);
         } finally {

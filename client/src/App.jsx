@@ -21,6 +21,9 @@ import AppDeclaration from './components/Brand/AppDeclaration';
 import ModalShell from './components/Brand/ModalShell';
 import LabProducer from './components/Brand/LabProducer';
 import LegalGate, { hasAcceptedLegalGate } from './components/Brand/LegalGate';
+import ErrorBoundary from './components/Ui/ErrorBoundary';
+import { parseEmbedParams, embedBridge } from './lib/embedBridge';
+import { api } from './lib/api';
 
 const ADMIN_TABS = ['annotation', 'exams', 'knowledge', 'personnel', 'reports', 'analytics', 'inspector', 'audit'];
 
@@ -42,11 +45,14 @@ function parseHash() {
   const parts = path.split('/').filter(Boolean);
   const mode = parts[0] === 'admin' ? 'admin' : 'play';
   const tab = ADMIN_TABS.includes(parts[1]) ? parts[1] : 'annotation';
-  const kiosk = params.get('kiosk') === '1';
-  return { mode, tab, kiosk };
+  const embedConfig = parseEmbedParams();
+  const kiosk = params.get('kiosk') === '1' || embedConfig.isKiosk;
+  return { mode, tab, kiosk, embedConfig };
 }
 
 function App() {
+  const [embedConfig] = useState(() => parseEmbedParams());
+  const isEmbedded = embedConfig.isEmbedded;
   const [mode, setMode] = useState(() => parseHash().mode);
   const [adminUnlocked, setAdminUnlocked] = useState(() => isStaffUser(getLoggedInUser()));
   const [adminTab, setAdminTab] = useState(() => parseHash().tab);
@@ -63,13 +69,24 @@ function App() {
   const [userLoginError, setUserLoginError] = useState('');
   const [userLoginLoading, setUserLoginLoading] = useState(false);
 
-  const [activeExamId, setActiveExamId] = useState(null);
-  const [autoStartExamId, setAutoStartExamId] = useState(null);
+  const [activeExamId, setActiveExamId] = useState(() => embedConfig.examId || null);
+  const [autoStartExamId, setAutoStartExamId] = useState(() => embedConfig.examId || null);
   const [editExamId, setEditExamId] = useState(null);
   const [scoreRefreshKey, setScoreRefreshKey] = useState(0);
   const [showCopyright, setShowCopyright] = useState(false);
   const [health, setHealth] = useState(null);
-  const [gateOk, setGateOk] = useState(() => hasAcceptedLegalGate());
+  const [gateOk, setGateOk] = useState(() => hasAcceptedLegalGate() || embedConfig.isEmbedded);
+
+  useEffect(() => {
+    if (isEmbedded) {
+      embedBridge.init(embedConfig.targetOrigin);
+    }
+    return () => {
+      if (isEmbedded) {
+        embedBridge.destroy();
+      }
+    };
+  }, [isEmbedded, embedConfig.targetOrigin]);
 
   useEffect(() => {
     const onHash = () => {
@@ -91,8 +108,7 @@ function App() {
   }, [mode, gateOk]);
 
   useEffect(() => {
-    fetch('/api/health')
-      .then(r => r.json())
+    api.get('/api/health')
       .then(setHealth)
       .catch(() => setHealth({ status: 'error' }));
     restoreAdminSession()
@@ -247,89 +263,91 @@ function App() {
 
   return (
     <div className="min-h-screen bg-page text-fg flex flex-col">
-      <header className="h-header sticky top-0 z-[100] bg-[color-mix(in_oklab,var(--bg-card)_86%,transparent)] border-b border-line backdrop-blur-[16px] saturate-[140%]">
-        <div className="h-full px-4 sm:px-6 flex justify-between items-center gap-3">
-          <div className="flex items-center min-w-0 gap-3">
-            <button
-              type="button"
-              className="flex-shrink-0 flex items-center cursor-pointer hover:opacity-80 transition bg-transparent p-0 border-0"
-              onClick={() => setShowCopyright(true)}
-              title="应用声明"
-            >
-              <SafeSpotWordmark size={32} />
-              <span className="hidden lg:inline ml-3 text-[11px] font-semibold tracking-[0.12em] text-accent">
-                察于至微，防于未萌
-              </span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            {health && (
-              <span
-                className={`hidden md:inline-flex items-center text-[10px] font-mono px-2 py-1 rounded-full border ${
-                  backendOk
-                    ? 'border-line text-[var(--text-ok)] bg-sunken'
-                    : 'border-[var(--alert-red)]/30 text-[var(--text-danger)] bg-sunken'
-                }`}
-                title={JSON.stringify(health)}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${backendOk ? 'bg-[var(--state-up)]' : 'bg-[var(--state-down)]'}`} />
-                {backendOk ? '后端就绪' : '后端异常'}
-              </span>
-            )}
-
-            {mode === 'play' && (
-              currentUser ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-secondary max-w-[140px] truncate" title={currentUser.username}>
-                    {currentUser.realName || currentUser.username}
-                    {currentUser.departmentName ? ` · ${currentUser.departmentName}` : ''}
-                  </span>
-                  <button
-                    onClick={handleUserLogout}
-                    className="btn btn-ghost btn-sm"
-                  >
-                    退出登录
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowUserLogin(true)}
-                  className="btn btn-secondary btn-sm"
-                >
-                  <Users className="w-4 h-4" /> <span className="hidden sm:inline">学员登录</span>
-                </button>
-              )
-            )}
-
-            {mode === 'play' && !kiosk ? (
+      {!isEmbedded && (
+        <header className="h-header sticky top-0 z-[100] bg-[color-mix(in_oklab,var(--bg-card)_86%,transparent)] border-b border-line backdrop-blur-[16px] saturate-[140%]">
+          <div className="h-full px-4 sm:px-6 flex justify-between items-center gap-3">
+            <div className="flex items-center min-w-0 gap-3">
               <button
-                onClick={() => navigate('admin')}
-                className="btn btn-ghost btn-sm"
-                title="管理端"
+                type="button"
+                className="flex-shrink-0 flex items-center cursor-pointer hover:opacity-80 transition bg-transparent p-0 border-0"
+                onClick={() => setShowCopyright(true)}
+                title="应用声明"
               >
-                <LayoutDashboard className="w-4 h-4" /> <span className="hidden sm:inline">管理端</span>
+                <SafeSpotWordmark size={32} />
+                <span className="hidden lg:inline ml-3 text-[11px] font-semibold tracking-[0.12em] text-accent">
+                  察于至微，防于未萌
+                </span>
               </button>
-            ) : mode === 'admin' ? (
-              <>
-                <button
-                  onClick={() => navigate('play')}
-                  className="btn btn-secondary btn-sm"
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3">
+              {health && (
+                <span
+                  className={`hidden md:inline-flex items-center text-[10px] font-mono px-2 py-1 rounded-full border ${
+                    backendOk
+                      ? 'border-line text-[var(--text-ok)] bg-sunken'
+                      : 'border-[var(--alert-red)]/30 text-[var(--text-danger)] bg-sunken'
+                  }`}
+                  title={JSON.stringify(health)}
                 >
-                  <Users className="w-4 h-4" /> 学员端
-                </button>
+                  <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${backendOk ? 'bg-[var(--state-up)]' : 'bg-[var(--state-down)]'}`} />
+                  {backendOk ? '后端就绪' : '后端异常'}
+                </span>
+              )}
+
+              {mode === 'play' && (
+                currentUser ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-secondary max-w-[140px] truncate" title={currentUser.username}>
+                      {currentUser.realName || currentUser.username}
+                      {currentUser.departmentName ? ` · ${currentUser.departmentName}` : ''}
+                    </span>
+                    <button
+                      onClick={handleUserLogout}
+                      className="btn btn-ghost btn-sm"
+                    >
+                      退出登录
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowUserLogin(true)}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    <Users className="w-4 h-4" /> <span className="hidden sm:inline">学员登录</span>
+                  </button>
+                )
+              )}
+
+              {mode === 'play' && !kiosk ? (
                 <button
-                  onClick={handleAdminLogout}
+                  onClick={() => navigate('admin')}
                   className="btn btn-ghost btn-sm"
-                  title="退出管理会话"
+                  title="管理端"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LayoutDashboard className="w-4 h-4" /> <span className="hidden sm:inline">管理端</span>
                 </button>
-              </>
-            ) : null}
+              ) : mode === 'admin' ? (
+                <>
+                  <button
+                    onClick={() => navigate('play')}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    <Users className="w-4 h-4" /> 学员端
+                  </button>
+                  <button
+                    onClick={handleAdminLogout}
+                    className="btn btn-ghost btn-sm"
+                    title="退出管理会话"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </>
+              ) : null}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <div className="flex flex-1 min-h-0">
         {mode === 'admin' && (
@@ -364,32 +382,48 @@ function App() {
             </div>
           )}
 
-          <main className="flex-1 min-h-0 p-3 sm:p-4 flex flex-col overflow-hidden">
+          <main className={`flex-1 min-h-0 ${isEmbedded ? 'p-0' : 'p-3 sm:p-4'} flex flex-col overflow-hidden`}>
             {mode === 'play' && (
               <div className="w-full flex-1 flex gap-3 min-h-0">
-                <div className="flex-1 overflow-hidden border border-line rounded-[10px] bg-[var(--bg-sunken)] flex flex-col min-w-0">
-                  <InteractionJudge
-                    onExamStart={setActiveExamId}
-                    onExamChange={setActiveExamId}
-                    autoStartExamId={autoStartExamId}
-                    onAutoStartConsumed={() => setAutoStartExamId(null)}
-                    onScoreSubmitted={() => setScoreRefreshKey(k => k + 1)}
-                    currentUser={currentUser}
-                    onRequestLogin={() => setShowUserLogin(true)}
-                  />
+                <div className={`flex-1 overflow-hidden ${isEmbedded ? 'border-0 rounded-none' : 'border border-line rounded-[10px]'} bg-[var(--bg-sunken)] flex flex-col min-w-0`}>
+                  <ErrorBoundary title="考核交互界面异常">
+                    <InteractionJudge
+                      onExamStart={setActiveExamId}
+                      onExamChange={setActiveExamId}
+                      autoStartExamId={autoStartExamId}
+                      onAutoStartConsumed={() => setAutoStartExamId(null)}
+                      onScoreSubmitted={() => setScoreRefreshKey(k => k + 1)}
+                      currentUser={currentUser}
+                      onRequestLogin={() => setShowUserLogin(true)}
+                      embedded={isEmbedded}
+                      autoStart={embedConfig.autoStart}
+                      initialCandidate={{
+                        userName: embedConfig.userName,
+                        userId: embedConfig.userId,
+                        department: embedConfig.department,
+                        departmentId: embedConfig.departmentId,
+                        employeeId: embedConfig.employeeId,
+                        mode: embedConfig.mode
+                      }}
+                    />
+                  </ErrorBoundary>
                 </div>
-                <div className="w-[350px] overflow-hidden border border-line rounded-[10px] bg-card flex-shrink-0 hidden lg:block">
-                  <ScoreKeeper activeExamId={activeExamId} refreshKey={scoreRefreshKey} />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowBoard(true)}
-                  className="lg:hidden fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-[var(--luxi-gold)] text-[#1A2428] shadow-md flex items-center justify-center"
-                  title="龙虎榜"
-                >
-                  <Trophy className="w-6 h-6" />
-                </button>
-                {showBoard && (
+                {!isEmbedded && (
+                  <div className="w-[350px] overflow-hidden border border-line rounded-[10px] bg-card flex-shrink-0 hidden lg:block">
+                    <ScoreKeeper activeExamId={activeExamId} refreshKey={scoreRefreshKey} />
+                  </div>
+                )}
+                {!isEmbedded && (
+                  <button
+                    type="button"
+                    onClick={() => setShowBoard(true)}
+                    className="lg:hidden fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-[var(--luxi-gold)] text-[#1A2428] shadow-md flex items-center justify-center"
+                    title="龙虎榜"
+                  >
+                    <Trophy className="w-6 h-6" />
+                  </button>
+                )}
+                {!isEmbedded && showBoard && (
                   <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setShowBoard(false)}>
                     <div className="absolute right-0 top-0 h-full w-[min(100%,380px)] bg-card shadow-lg" onClick={e => e.stopPropagation()}>
                       <div className="p-3 flex justify-end">

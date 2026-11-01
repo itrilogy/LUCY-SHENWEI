@@ -5,6 +5,7 @@ import {
     Layers, Database, Hash
 } from 'lucide-react';
 import ConfirmDialog from '../ConfirmDialog';
+import { api } from '../../lib/api';
 
 const API_BASE = '/api/admin/knowledge';
 
@@ -56,22 +57,16 @@ export default function KnowledgeManager() {
 
     const fetchRiskDict = async () => {
         try {
-            const res = await fetch('/api/admin/risk/dict');
-            if (res.ok) {
-                const data = await res.json();
-                setRiskDict(data);
-            }
+            const data = await api.get('/api/admin/risk/dict');
+            setRiskDict(Array.isArray(data) ? data : []);
         } catch (e) { console.error('加载字典失败', e); }
     };
 
     const fetchScenes = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/scenes`);
-            if (res.ok) {
-                const data = await res.json();
-                setScenes(data);
-            }
+            const data = await api.get(`${API_BASE}/scenes`);
+            setScenes(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error('加载场景失败', e);
         } finally {
@@ -81,11 +76,8 @@ export default function KnowledgeManager() {
 
     const fetchCategories = async (sceneId) => {
         try {
-            const res = await fetch(`${API_BASE}/categories?scene_id=${sceneId}`);
-            if (res.ok) {
-                const data = await res.json();
-                setCategories(data);
-            }
+            const data = await api.get(`${API_BASE}/categories?scene_id=${sceneId}`);
+            setCategories(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error('加载分类失败', e);
         }
@@ -93,11 +85,8 @@ export default function KnowledgeManager() {
 
     const fetchItems = async (categoryId) => {
         try {
-            const res = await fetch(`${API_BASE}/items?category_id=${categoryId}`);
-            if (res.ok) {
-                const data = await res.json();
-                setItems(data);
-            }
+            const data = await api.get(`${API_BASE}/items?category_id=${categoryId}`);
+            setItems(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error('加载条目失败', e);
         }
@@ -107,16 +96,10 @@ export default function KnowledgeManager() {
         e.preventDefault();
         if (!sceneName.trim()) return;
         try {
-            const res = await fetch(`${API_BASE}/scenes`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: sceneName })
-            });
-            if (res.ok) {
-                setSceneName('');
-                setShowSceneModal(false);
-                fetchScenes();
-            }
+            await api.post(`${API_BASE}/scenes`, { name: sceneName });
+            setSceneName('');
+            setShowSceneModal(false);
+            fetchScenes();
         } catch (e) { flash('创建失败'); }
     };
 
@@ -124,16 +107,10 @@ export default function KnowledgeManager() {
         e.preventDefault();
         if (!selectedScene || !categoryName.trim()) return;
         try {
-            const res = await fetch(`${API_BASE}/categories`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ scene_id: selectedScene.id, name: categoryName })
-            });
-            if (res.ok) {
-                setCategoryName('');
-                setShowCategoryModal(false);
-                fetchCategories(selectedScene.id);
-            }
+            await api.post(`${API_BASE}/categories`, { scene_id: selectedScene.id, name: categoryName });
+            setCategoryName('');
+            setShowCategoryModal(false);
+            fetchCategories(selectedScene.id);
         } catch (e) { flash('创建失败'); }
     };
 
@@ -141,19 +118,16 @@ export default function KnowledgeManager() {
         e.preventDefault();
         try {
             const url = itemForm.id ? `${API_BASE}/items/${itemForm.id}` : `${API_BASE}/items`;
-            const method = itemForm.id ? 'PUT' : 'POST';
             const body = itemForm.id ? itemForm : { ...itemForm, category_id: selectedCategory.id };
 
-            const res = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-
-            if (res.ok) {
-                setShowItemModal(false);
-                fetchItems(selectedCategory.id);
+            if (itemForm.id) {
+                await api.put(url, body);
+            } else {
+                await api.post(url, body);
             }
+
+            setShowItemModal(false);
+            fetchItems(selectedCategory.id);
         } catch (e) { flash('保存失败'); }
     };
 
@@ -167,17 +141,15 @@ export default function KnowledgeManager() {
     const doDelete = async (type, id) => {
         setConfirmDel(null);
         try {
-            const res = await fetch(`${API_BASE}/${type}s/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                if (type === 'scene') {
-                    fetchScenes();
-                    if (selectedScene?.id === id) setSelectedScene(null);
-                } else if (type === 'category') {
-                    fetchCategories(selectedScene.id);
-                    if (selectedCategory?.id === id) setSelectedCategory(null);
-                } else {
-                    fetchItems(selectedCategory.id);
-                }
+            await api.del(`${API_BASE}/${type}s/${id}`);
+            if (type === 'scene') {
+                fetchScenes();
+                if (selectedScene?.id === id) setSelectedScene(null);
+            } else if (type === 'category') {
+                fetchCategories(selectedScene.id);
+                if (selectedCategory?.id === id) setSelectedCategory(null);
+            } else {
+                fetchItems(selectedCategory.id);
             }
         } catch (e) { flash('删除失败'); }
     };
@@ -190,27 +162,17 @@ export default function KnowledgeManager() {
 
     const saveEdit = async () => {
         try {
-            const res = await fetch(`${API_BASE}/${editingType}s/${editingId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: editValue })
-            });
-            if (res.ok) {
-                setEditingId(null);
-                if (editingType === 'scene') fetchScenes();
-                else fetchCategories(selectedScene.id);
-            }
+            await api.put(`${API_BASE}/${editingType}s/${editingId}`, { name: editValue });
+            setEditingId(null);
+            if (editingType === 'scene') fetchScenes();
+            else fetchCategories(selectedScene.id);
         } catch (e) { flash('更新失败'); }
     };
 
     const updateRiskDictItem = async (id, level_name, level_value) => {
         try {
-            const res = await fetch(`/api/admin/risk/dict/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ level_name, level_value })
-            });
-            if (res.ok) fetchRiskDict();
+            await api.put(`/api/admin/risk/dict/${id}`, { level_name, level_value });
+            fetchRiskDict();
         } catch (e) { flash('更新字典失败'); }
     };
 

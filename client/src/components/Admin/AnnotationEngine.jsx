@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MousePointer2, Save, X, Square, Circle, Scaling, Trash2, Target } from 'lucide-react';
+import { api } from '../../lib/api';
 
 export default function AnnotationEngine() {
     const [images, setImages] = useState([]);
@@ -97,22 +98,12 @@ export default function AnnotationEngine() {
         imagesOnly.forEach(f => formData.append('images', f));
 
         try {
-            const res = await fetch('/api/assets/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                showToast(`成功上传 ${data.count || imagesOnly.length} 张图片`);
-                await fetchImages();
-            } else {
-                const err = await res.json();
-                showToast(`上传失败: ${err.error || '未知错误'}`, 'error');
-            }
+            const data = await api.upload('/api/assets/upload', formData);
+            showToast(`成功上传 ${data.count || imagesOnly.length} 张图片`);
+            await fetchImages();
         } catch (error) {
             console.error('文件上传异常:', error);
-            showToast('本地服务器未响应或跨域被拦截！', 'error');
+            showToast(error.message || '本地服务器未响应或上传失败', 'error');
         } finally {
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
@@ -157,35 +148,35 @@ export default function AnnotationEngine() {
 
     const fetchRiskDict = async () => {
         try {
-            const res = await fetch('/api/admin/risk/dict');
-            if (res.ok) {
-                const data = await res.json();
-                setRiskDict(data);
-            }
+            const data = await api.get('/api/admin/risk/dict');
+            setRiskDict(Array.isArray(data) ? data : []);
         } catch (e) { console.error('加载字典失败', e); }
     };
 
     const fetchImages = async () => {
-        const res = await fetch('/api/assets');
-        const data = await res.json();
-        setImages(data.data || []);
+        try {
+            const data = await api.get('/api/assets');
+            setImages(data.data || []);
+        } catch (e) { console.error('加载图库失败', e); }
     };
 
     const fetchKnowledge = async () => {
-        const res = await fetch('/api/knowledge');
-        const data = await res.json();
-        setKnowledgeTree(data.knowledgeTree || []);
-        if (data.knowledgeTree && data.knowledgeTree.length > 0) {
-            setSelectedGlobalScene(data.knowledgeTree[0].scene);
-        }
+        try {
+            const data = await api.get('/api/knowledge');
+            setKnowledgeTree(data.knowledgeTree || []);
+            if (data.knowledgeTree && data.knowledgeTree.length > 0) {
+                setSelectedGlobalScene(data.knowledgeTree[0].scene);
+            }
+        } catch (e) { console.error('加载知识库失败', e); }
     };
 
     const loadMeta = async (imgId) => {
-        const res = await fetch(`/api/assets/meta/${imgId}`);
-        const data = await res.json();
-        setAnnotations(data.meta.items || []);
-        setIsDirty(false);
-        if (data.meta.sceneId) setSelectedGlobalScene(data.meta.sceneId);
+        try {
+            const data = await api.get(`/api/assets/meta/${imgId}`);
+            setAnnotations(data.meta?.items || []);
+            setIsDirty(false);
+            if (data.meta?.sceneId) setSelectedGlobalScene(data.meta.sceneId);
+        } catch (e) { console.error('加载标注元数据失败', e); }
     };
 
     const applySelectImage = (img) => {
@@ -390,21 +381,12 @@ export default function AnnotationEngine() {
 
         setSaving(true);
         try {
-            const res = await fetch(`/api/assets/meta/${activeImage.name}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                showToast('保存标注成功');
-                setIsDirty(false);
-                fetchImages();
-            } else {
-                showToast('保存失败', 'error');
-            }
+            await api.post(`/api/assets/meta/${activeImage.name}`, payload);
+            showToast('保存标注成功');
+            setIsDirty(false);
+            fetchImages();
         } catch (e) {
-            showToast('网络错误，保存失败', 'error');
+            showToast(e.message || '网络错误，保存失败', 'error');
         } finally {
             setSaving(false);
         }
@@ -419,36 +401,35 @@ export default function AnnotationEngine() {
             message: '警告：是否确定永久删除该案件资产及它关联的所有隐患红线？删除后数据无法恢复！',
             onConfirm: async () => {
                 try {
-                    const res = await fetch(`/api/assets/${activeImage.name}`, { method: 'DELETE' });
-                    if (res.ok) {
-                        setActiveImage(null);
-                        setAnnotations([]);
-                        fetchImages();
-                        showToast('案例已永久销毁');
-                    } else if (res.status === 409) {
-                        const err = await res.json().catch(() => ({}));
-                        const names = (err.exams || []).map((e) => e.exam_name).join('、');
+                    await api.del(`/api/assets/${activeImage.name}`);
+                    setActiveImage(null);
+                    setAnnotations([]);
+                    fetchImages();
+                    showToast('案例已永久销毁');
+                } catch (e) {
+                    if (e.status === 409) {
+                        const errData = e.data || {};
+                        const names = (errData.exams || []).map((ex) => ex.exam_name).join('、');
                         setConfirmBox({
                             show: true,
                             title: '图已被已发布试卷引用',
-                            message: `${err.error || '无法删除'}\n${names}\n\n仍要强制删除吗？相关试卷题目会变少。`,
+                            message: `${errData.error || '无法删除'}\n${names}\n\n仍要强制删除吗？相关试卷题目会变少。`,
                             onConfirm: async () => {
                                 setConfirmBox({ show: false });
-                                const r2 = await fetch(`/api/assets/${activeImage.name}?force=1`, { method: 'DELETE' });
-                                if (r2.ok) {
+                                try {
+                                    await api.del(`/api/assets/${activeImage.name}?force=1`);
                                     setActiveImage(null);
                                     setAnnotations([]);
                                     fetchImages();
                                     showToast('已强制删除');
+                                } catch (err2) {
+                                    showToast(err2.message || '强制删除失败', 'error');
                                 }
                             }
                         });
                     } else {
-                        showToast('删除失败，服务器异常', 'error');
+                        showToast(e.message || '删除失败，服务器异常', 'error');
                     }
-                } catch (e) {
-                    console.error(e);
-                    showToast('网络传输错误', 'error');
                 }
                 setConfirmBox({ ...confirmBox, show: false });
             }

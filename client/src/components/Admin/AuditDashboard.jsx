@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollText } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../Ui/EmptyState';
+import { api } from '../../lib/api';
 
 export default function AuditDashboard() {
     const [rows, setRows] = useState([]);
@@ -10,9 +11,8 @@ export default function AuditDashboard() {
     const load = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/admin/audit?limit=300');
-            if (!res.ok) throw new Error('无权查看或加载失败');
-            setRows(await res.json());
+            const data = await api.get('/api/admin/audit?limit=300');
+            setRows(Array.isArray(data) ? data : []);
             setError('');
         } catch (e) {
             setError(e.message);

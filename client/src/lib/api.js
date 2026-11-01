@@ -1,19 +1,32 @@
 async function parseBody(res) {
     const text = await res.text();
     if (!text) return {};
-    try { return JSON.parse(text); } catch { return { error: text }; }
+    try {
+        return JSON.parse(text);
+    } catch {
+        return { error: text };
+    }
 }
 
 export async function apiFetch(path, options = {}) {
-    const { headers, ...rest } = options;
+    const { headers, body, ...rest } = options;
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+    const isString = typeof body === 'string';
+
+    const finalHeaders = { ...headers };
+    if (body && !isFormData && !finalHeaders['Content-Type']) {
+        finalHeaders['Content-Type'] = 'application/json';
+    }
+
+    const finalBody = body && !isFormData && !isString ? JSON.stringify(body) : body;
+
     const res = await fetch(path, {
         credentials: 'include',
         ...rest,
-        headers: {
-            ...(rest.body && !(rest.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
-            ...headers
-        }
+        body: finalBody,
+        headers: finalHeaders
     });
+
     const data = await parseBody(res);
     if (!res.ok) {
         const err = new Error(data.error || `请求失败 (${res.status})`);
@@ -25,9 +38,9 @@ export async function apiFetch(path, options = {}) {
 }
 
 export const api = {
-    get: (path) => apiFetch(path),
-    post: (path, body) => apiFetch(path, { method: 'POST', body: JSON.stringify(body || {}) }),
-    put: (path, body) => apiFetch(path, { method: 'PUT', body: JSON.stringify(body || {}) }),
-    del: (path) => apiFetch(path, { method: 'DELETE' }),
-    upload: (path, formData) => apiFetch(path, { method: 'POST', body: formData })
+    get: (path, options) => apiFetch(path, { method: 'GET', ...options }),
+    post: (path, body, options) => apiFetch(path, { method: 'POST', body, ...options }),
+    put: (path, body, options) => apiFetch(path, { method: 'PUT', body, ...options }),
+    del: (path, options) => apiFetch(path, { method: 'DELETE', ...options }),
+    upload: (path, formData, options) => apiFetch(path, { method: 'POST', body: formData, ...options })
 };

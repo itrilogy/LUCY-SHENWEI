@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart3, Download, AlertTriangle, Filter } from 'lucide-react';
 import { ChartFootnote } from '../Ui/EmptyState';
+import { api } from '../../lib/api';
 
 export default function ReportsDashboard() {
     const [examIds, setExamIds] = useState([]);
@@ -15,7 +16,7 @@ export default function ReportsDashboard() {
     const [rangeDays, setRangeDays] = useState(0);
 
     useEffect(() => {
-        fetch('/api/admin/reports/exam-ids').then(r => r.json()).then(setExamIds).catch(() => {});
+        api.get('/api/admin/reports/exam-ids').then(r => setExamIds(Array.isArray(r) ? r : [])).catch(() => {});
     }, []);
 
     const load = async () => {
@@ -33,9 +34,9 @@ export default function ReportsDashboard() {
             if (examId) attQs.set('examId', examId);
             if (rangeDays > 0) attQs.set('from', String(Date.now() - rangeDays * 86400000));
             const [recs, w, att] = await Promise.all([
-                fetch(`/api/admin/reports/records?${params}`).then(r => r.json()),
-                fetch(`/api/admin/reports/weak-items?${examId ? `examId=${encodeURIComponent(examId)}&` : ''}limit=15`).then(r => r.json()),
-                examId ? fetch(`/api/admin/reports/attendance?${attQs}`).then(r => r.json()).catch(() => null) : Promise.resolve(null)
+                api.get(`/api/admin/reports/records?${params}`).catch(() => []),
+                api.get(`/api/admin/reports/weak-items?${examId ? `examId=${encodeURIComponent(examId)}&` : ''}limit=15`).catch(() => []),
+                examId ? api.get(`/api/admin/reports/attendance?${attQs}`).catch(() => null) : Promise.resolve(null)
             ]);
             setRows(Array.isArray(recs) ? recs : []);
             setWeak(Array.isArray(w) ? w : []);

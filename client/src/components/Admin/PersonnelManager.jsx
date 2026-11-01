@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Users, Building2, Plus, Trash2, Save, UserPlus, Pencil, X, RotateCcw } from 'lucide-react';
 import ConfirmDialog from '../ConfirmDialog';
+import { api } from '../../lib/api';
 
 /** 将扁平部门列表展开为带层级前缀的选项（深度优先） */
 function buildDeptOptions(depts, parentId = null, depth = 0, acc = []) {
@@ -137,15 +138,11 @@ export default function PersonnelManager() {
             const qs = new URLSearchParams();
             if (selectedDept) qs.set('department_id', selectedDept);
             if (q.trim()) qs.set('q', q.trim());
-            const [oRes, dRes, uRes] = await Promise.all([
-                fetch('/api/org'),
-                fetch('/api/org/departments'),
-                fetch(`/api/org/users?${qs}`)
+            const [o, d, u] = await Promise.all([
+                api.get('/api/org').catch(() => null),
+                api.get('/api/org/departments'),
+                api.get(`/api/org/users?${qs}`).catch(() => [])
             ]);
-            if (!dRes.ok) throw new Error('加载部门失败');
-            const o = oRes.ok ? await oRes.json() : null;
-            const d = await dRes.json();
-            const u = uRes.ok ? await uRes.json() : [];
             setOrg(o);
             setDepts(Array.isArray(d) ? d : []);
             setUsers(Array.isArray(u) ? u : []);
@@ -178,35 +175,17 @@ export default function PersonnelManager() {
         }
         try {
             if (deptMode === 'edit' && editingDeptId) {
-                const res = await fetch(`/api/org/departments/${editingDeptId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: deptName.trim(),
-                        parent_id: deptParent || null
-                    })
+                await api.put(`/api/org/departments/${editingDeptId}`, {
+                    name: deptName.trim(),
+                    parent_id: deptParent || null
                 });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) {
-                    toast(data.error || `保存失败 (${res.status})`, 'err');
-                    return;
-                }
                 toast(`部门「${deptName.trim()}」已更新`);
                 resetDeptForm();
             } else {
-                const res = await fetch('/api/org/departments', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: deptName.trim(),
-                        parent_id: deptParent || null
-                    })
+                const data = await api.post('/api/org/departments', {
+                    name: deptName.trim(),
+                    parent_id: deptParent || null
                 });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) {
-                    toast(data.error || `添加失败 (${res.status})`, 'err');
-                    return;
-                }
                 toast(`部门「${data.name}」已添加`);
                 resetDeptForm();
             }
@@ -223,15 +202,11 @@ export default function PersonnelManager() {
             run: async () => {
                 setConfirmAct(null);
                 try {
-                    const res = await fetch(`/api/org/departments/${id}`, { method: 'DELETE' });
-                    const e = await res.json().catch(() => ({}));
-                    if (!res.ok) toast(e.error || '删除失败', 'err');
-                    else {
-                        if (selectedDept === id) setSelectedDept(null);
-                        if (editingDeptId === id) resetDeptForm();
-                        toast('已删除');
-                        load();
-                    }
+                    await api.del(`/api/org/departments/${id}`);
+                    if (selectedDept === id) setSelectedDept(null);
+                    if (editingDeptId === id) resetDeptForm();
+                    toast('已删除');
+                    load();
                 } catch (e) {
                     toast(e.message || '网络错误', 'err');
                 }
@@ -280,13 +255,7 @@ export default function PersonnelManager() {
                 };
                 if (form.password.trim()) body.password = form.password.trim();
 
-                const res = await fetch(`/api/org/users/${form.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) { toast(data.error || '保存失败', 'err'); return; }
+                await api.put(`/api/org/users/${form.id}`, body);
                 toast('人员信息已更新');
                 resetUserForm();
             } else {
@@ -294,22 +263,16 @@ export default function PersonnelManager() {
                     toast('新建人员必须设置初始密码', 'err');
                     return;
                 }
-                const res = await fetch('/api/org/users', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username: form.username.trim(),
-                        password: form.password.trim(),
-                        real_name: form.real_name.trim(),
-                        employee_no: form.employee_no,
-                        mobile: form.mobile,
-                        department_id: form.department_id || null,
-                        role: form.role,
-                        job_title: form.job_title
-                    })
+                await api.post('/api/org/users', {
+                    username: form.username.trim(),
+                    password: form.password.trim(),
+                    real_name: form.real_name.trim(),
+                    employee_no: form.employee_no,
+                    mobile: form.mobile,
+                    department_id: form.department_id || null,
+                    role: form.role,
+                    job_title: form.job_title
                 });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) { toast(data.error || '创建失败', 'err'); return; }
                 toast('用户已创建，可用该账号在学员端登录');
                 resetUserForm();
             }
@@ -325,26 +288,25 @@ export default function PersonnelManager() {
             message: '禁用该账号？（成绩记录保留）',
             run: async () => {
                 setConfirmAct(null);
-                await fetch(`/api/org/users/${id}`, { method: 'DELETE' });
-                toast('已禁用');
-                if (form.id === id) resetUserForm();
-                load();
+                try {
+                    await api.del(`/api/org/users/${id}`);
+                    toast('已禁用');
+                    if (form.id === id) resetUserForm();
+                    load();
+                } catch (e) {
+                    toast(e.message || '网络错误', 'err');
+                }
             }
         });
     };
 
     const enableUser = async (id) => {
-        const res = await fetch(`/api/org/users/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'active' })
-        });
-        if (res.ok) {
+        try {
+            await api.put(`/api/org/users/${id}`, { status: 'active' });
             toast('已重新启用');
             load();
-        } else {
-            const data = await res.json().catch(() => ({}));
-            toast(data.error || '启用失败', 'err');
+        } catch (e) {
+            toast(e.message || '启用失败', 'err');
         }
     };
 
@@ -450,10 +412,12 @@ export default function PersonnelManager() {
                                     if (!f) return;
                                     const fd = new FormData();
                                     fd.append('file', f);
-                                    const res = await fetch('/api/admin/personnel/import', { method: 'POST', body: fd });
-                                    const d = await res.json().catch(() => ({}));
-                                    if (res.ok) toast(`导入 ${d.created} 人` + (d.skipped?.length ? `，跳过 ${d.skipped.length}` : ''));
-                                    else toast(d.error || '导入失败', 'err');
+                                    try {
+                                        const d = await api.upload('/api/admin/personnel/import', fd);
+                                        toast(`导入 ${d.created} 人` + (d.skipped?.length ? `，跳过 ${d.skipped.length}` : ''));
+                                    } catch (err) {
+                                        toast(err.message || '导入失败', 'err');
+                                    }
                                     e.target.value = '';
                                     load();
                                 }}

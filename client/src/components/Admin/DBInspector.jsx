@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Database, Search, Trash2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import ConfirmDialog from '../ConfirmDialog';
+import { api } from '../../lib/api';
 
 export default function DBInspector() {
     const [selectedTable, setSelectedTable] = useState('assets');
@@ -24,13 +25,8 @@ export default function DBInspector() {
         try {
             setLoading(true);
             setData([]); // 在抓取新数据前先清空旧数据，防止 UI 错位
-            const res = await fetch(`/api/admin/db/query/${selectedTable}`);
-            if (res.ok) {
-                const json = await res.json();
-                setData(json);
-            } else {
-                console.error('API 返回错误状态:', res.status);
-            }
+            const json = await api.get(`/api/admin/db/query/${selectedTable}`);
+            setData(Array.isArray(json) ? json : []);
         } catch (e) {
             console.error('Fetch error:', e);
         } finally {
@@ -39,7 +35,7 @@ export default function DBInspector() {
     };
 
     const refreshBackups = () => {
-        fetch('/api/admin/backup').then((r) => r.ok ? r.json() : []).then(setBackups).catch(() => {});
+        api.get('/api/admin/backup').then((r) => Array.isArray(r) ? r : []).then(setBackups).catch(() => {});
     };
 
     useEffect(() => { refreshBackups(); }, []);
@@ -51,8 +47,7 @@ export default function DBInspector() {
     const doCleanup = async () => {
         setConfirmOpen(false);
         try {
-            const res = await fetch('/api/admin/cleanup', { method: 'POST' });
-            const result = await res.json();
+            const result = await api.post('/api/admin/cleanup');
             setCleanupStatus(result.message);
             setTimeout(() => setCleanupStatus(null), 5000);
         } catch (e) {
@@ -100,10 +95,13 @@ export default function DBInspector() {
                 <button
                     type="button"
                     onClick={async () => {
-                        const r = await fetch('/api/admin/backup', { method: 'POST' });
-                        const d = await r.json();
-                        setOpsMsg(r.ok ? `已生成 ${d.fileName}` : (d.error || '备份失败'));
-                        refreshBackups();
+                        try {
+                            const d = await api.post('/api/admin/backup');
+                            setOpsMsg(`已生成 ${d.fileName}`);
+                            refreshBackups();
+                        } catch (e) {
+                            setOpsMsg(e.message || '备份失败');
+                        }
                     }}
                     className="px-3 py-1.5 bg-primary text-white rounded-lg font-bold"
                 >
@@ -112,14 +110,18 @@ export default function DBInspector() {
                 <button
                     type="button"
                     onClick={async () => {
-                        const prev = await fetch('/api/admin/hygiene').then((r) => r.json());
-                        const nA = prev.duplicateAssets?.length || 0;
-                        const nR = prev.orphanRecords?.length || 0;
-                        if (!nA && !nR && !prev.orphanAttemptStats && !prev.orphanFacts) {
-                            setOpsMsg('没有需要清理的重复图或失效成绩/学情');
-                            return;
+                        try {
+                            const prev = await api.get('/api/admin/hygiene');
+                            const nA = prev.duplicateAssets?.length || 0;
+                            const nR = prev.orphanRecords?.length || 0;
+                            if (!nA && !nR && !prev.orphanAttemptStats && !prev.orphanFacts) {
+                                setOpsMsg('没有需要清理的重复图或失效成绩/学情');
+                                return;
+                            }
+                            setHygieneConfirm({ nA, nR, stats: prev.orphanAttemptStats, facts: prev.orphanFacts });
+                        } catch (e) {
+                            setOpsMsg('查询卫生状态失败');
                         }
-                        setHygieneConfirm({ nA, nR, stats: prev.orphanAttemptStats, facts: prev.orphanFacts });
                     }}
                     className="px-3 py-1.5 bg-amber-600 text-white rounded-lg font-bold"
                 >
@@ -132,9 +134,12 @@ export default function DBInspector() {
                         if (!f) return;
                         const fd = new FormData();
                         fd.append('file', f);
-                        const r = await fetch('/api/admin/bank/import', { method: 'POST', body: fd });
-                        const d = await r.json();
-                        setOpsMsg(r.ok ? `导入成功：卷 ${d.exams} / 图 ${d.assets}` : (d.error || '导入失败'));
+                        try {
+                            const d = await api.upload('/api/admin/bank/import', fd);
+                            setOpsMsg(`导入成功：卷 ${d.exams} / 图 ${d.assets}`);
+                        } catch (err) {
+                            setOpsMsg(err.message || '导入失败');
+                        }
                         e.target.value = '';
                     }} />
                 </label>
@@ -207,11 +212,12 @@ export default function DBInspector() {
                 onCancel={() => setHygieneConfirm(null)}
                 onConfirm={async () => {
                     setHygieneConfirm(null);
-                    const r = await fetch('/api/admin/hygiene', { method: 'POST' });
-                    const d = await r.json();
-                    setOpsMsg(r.ok
-                        ? `已清理重复图 ${d.assets?.count || 0}、失效成绩 ${d.scores?.records || 0}`
-                        : (d.error || '清理失败'));
+                    try {
+                        const d = await api.post('/api/admin/hygiene');
+                        setOpsMsg(`已清理重复图 ${d.assets?.count || 0}、失效成绩 ${d.scores?.records || 0}`);
+                    } catch (err) {
+                        setOpsMsg(err.message || '清理失败');
+                    }
                     fetchData();
                 }}
             />

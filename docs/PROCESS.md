@@ -336,6 +336,79 @@
 
 ---
 
+### 2026-11-01 · W6 服务端路由解耦、最大余额法算分、数据库 V5 索引与前端网络层统一
+
+- **原因**：根据工程与产品审计（`docs/ENGINEERING_AND_PRODUCT_AUDIT.md`），解决服务端 1708 行单体代码腐化、等权加权算分末位余数堆积失真（15 题 100 分时首位与末位 6 分与 16 分相差 2.67 倍）、数据库无复合索引引起全表扫描、缺乏登录防爆破限流、会话无内存缓存频繁击穿 SQLite，以及前端 40 余处原生 fetch 散乱缺乏统一认证与错误处理的问题。
+- **行为变化**：
+  - **最大余额法（Hamilton-Hare Method）**：双端重写 `buildPointScoreMap` 的 `weighted` 算法，分值配额保序且按余数排序平滑分配，极差严格 $\le 1$ 分，彻底消除尾项积聚失真。
+  - **数据库 V5 复合索引覆盖**：建立 `records` 综合覆盖查询索引、`user_id` 历史成绩索引、用户组织与部门索引、试卷题目索引，消灭报表与龙虎榜全表扫描。
+  - **内存短缓存与登录限流**：实现 5 秒 TTL 内存会话缓存，高频请求无需打入 SQLite；新增基于 IP 的滑动窗口限流中间件（1 分钟最多 15 次），防范凭证撞库爆破，返回标准 429 与 `RateLimit-*` 标头。
+  - **服务端架构模块化**：`server/src/app.js` 从 1708 行降解至 119 行，拆分为 8 大独立路由模块（`routes/auth.js`、`assets.js`、`knowledge.js`、`exams.js`、`org.js`、`reports.js`、`analytics.js`、`system.js`），搭配原 `play.js`，全部路径 100% 保持向前兼容。
+  - **依赖清洁**：卸载 `server/package.json` 中的废弃依赖 `lowdb` 与 `steno`，服务端依赖精简至 4 个必要包。
+  - **前端网络请求层统一**：完善 `client/src/lib/api.js`，支持自动 JSON 序列化、FormData 文件上传、凭据携带与错误捕获；前端全部 11 个业务组件彻底淘汰原生 `fetch`。
+- **改动文件**：
+  - `server/src/db.js` — V5 数据库索引迁移
+  - `server/src/scoring.js`、`client/src/lib/scoring.js` — 最大余额法算法
+  - `server/src/session.js` — 会话 5 秒短期内存缓存与失效钩子
+  - `server/src/rateLimit.js` — 轻量滑动窗口限流中间件
+  - `server/src/app.js` — 启动与流水线挂载核心（119 行）
+  - `server/src/routes/auth.js` — 管理与学员认证登录模块
+  - `server/src/routes/assets.js` — 图库上传/删除/标注接口
+  - `server/src/routes/knowledge.js` — 知识库树与风险字典接口
+  - `server/src/routes/exams.js` — 组卷/试卷管理/龙虎榜/任务指派
+  - `server/src/routes/org.js` — 组织架构/部门/人员与名册
+  - `server/src/routes/reports.js` — 报表查询/到考率/弱项/CSV导出
+  - `server/src/routes/analytics.js` — 学情概览/知识点/熟练度/洞察
+  - `server/src/routes/system.js` — 备份/恢复/题库导入导出/巡检清理
+  - `client/src/lib/api.js` — 统一网络请求与客户端中间件
+  - `client/src/App.jsx`、`client/src/components/Admin/*`、`client/src/components/User/*` — 替换原生 fetch
+  - `server/package.json`、`server/package-lock.json` — 移除 lowdb
+  - `server/test/*.test.js` — 23 项单测与 API 集成测试
+  - `docs/ENGINEERING_AND_PRODUCT_AUDIT.md`、`docs/PLAN.md`、`docs/PROCESS.md`、`docs/README.md` — 架构文档与流程记账
+- **验收**：
+  - `npm test --prefix server`：23 项单元与 API 集成测试通过（12 个套件耗时 <300ms）。
+  - `npm run build`：客户端成功编译，生产资源打包完成（380.97 kB）。
+  - 前端全站 0 处遗留未封装的原始 `fetch`。
+- **残留 / 不做**：Phase 2 专项规划（PRI 响应时间衰减因子、5×5 风险权重贝叶斯平滑矩阵）待按阶段推进。
+
+---
+
+### 2026-11-01 · W7 开考白屏故障排除、跨平台嵌入式考核协议与双向套接字落地
+
+- **原因**：
+  1. 用户实测反馈「前端可以进行测试前的内容填写，但进入测试，页面无内容，无法进入实际试卷进行考试」。经代码审计，在学员端组件解耦拆分后，`InteractionJudge.jsx` 中引用了未导入的 Lucide 图标组件 `<Target />`，导致在进入实际考核测试渲染时，React 抛出 `ReferenceError: Target is not defined`，造成整个组件树崩溃白屏；同时画布容器缺乏自适应高度保护，图片加载缺乏容错兜底。
+  2. 用户提出「后续其他平台（如企业培训系统 LMS、生产调度指挥大屏、安监系统）可能会拉取测试，需要一套携带嵌入和具体套接字的考试协议，从而能够直接进入考试页面，并携带用户信息」。
+- **行为变化**：
+  - **开考白屏彻底修复**：补齐 `Target` 图标导入；对现场原片 URL 实施规范转义并优先采用服务端返回的 `attempt.slides` 映射；为无题空状态补齐「返回大厅」按钮；为考核主视图增加 `client/src/components/Ui/ErrorBoundary.jsx` 错误边界隔离，彻底消除静默白屏。
+  - **跨平台嵌入与深链直通模式**：支持 `?embedded=1` / `?embed=true` 与 `?kiosk=1`。激活时自动隐藏顶部导航、版权页脚、龙虎榜侧边栏，将全屏空间留给现场隐患排查画布。
+  - **身份携带与直接开考**：支持 URL Query 与 PostMessage 传递 `userName`、`userId`、`employeeId`、`department`、`examId`、`mode` 及 `autoStart=1`。信息齐备时跳过大厅 3 步确认，毫秒级直接开考。
+  - **双向事件套接字总线 (`embedBridge.js`)**：
+    - 主动广播事件：`SAFESPOT_READY`（就绪与考卷清单）、`SAFESPOT_STARTED`（正式开考会话）、`SAFESPOT_PROGRESS`（每题隐患排查进度、得分、倒计时）、`SAFESPOT_SUBMIT`（权威终审成绩、等第、PRI、错题集）、`SAFESPOT_EXIT`（退出）、`SAFESPOT_ERROR`（异常）。
+    - 接收外部控制指令：`SAFESPOT_INIT`（推入身份）、`SAFESPOT_START`（远程触发开考）、`SAFESPOT_FORCE_SUBMIT`（第三方监考平台远程强制收卷）。
+  - **HMAC-SHA256 签名安全票据 (`embedTicket.js`)**：开发安全开考票据体系，增加 `/api/embed/launch-ticket`、`/api/embed/verify-ticket`、`/api/embed/spec` 接口，杜绝学员在 DevTools 中篡改身份。
+  - **双向试卷解析兼容**：服务端 `POST /api/exam-sessions` 支持按 `id` 或 `exam_name` 解析试卷，避免外部系统传入卷名时报「试卷不存在」。
+  - **完整技术规范文档**：落地 `docs/EMBEDDED_EXAM_PROTOCOL.md`。
+- **改动文件**：
+  - `client/src/components/User/InteractionJudge.jsx` — 修复 Target 引用、接入嵌入与套接字通信
+  - `client/src/components/Ui/ErrorBoundary.jsx` — 局域防崩溃错误边界组件
+  - `client/src/lib/embedBridge.js` — 跨平台嵌入与 PostMessage 套接字通信总线
+  - `client/src/App.jsx` — 解析嵌入参数、自适应免登直通与 100% 画布宽度布局
+  - `server/src/embedTicket.js` — HMAC-SHA256 安全票据加解密与时序防篡改模块
+  - `server/src/routes/embed.js` — 嵌入协议支持路由端点
+  - `server/src/routes/play.js` — 支持 ticket 开考与按 exam_name 兼容匹配
+  - `server/src/session.js` — 放行 `/api/embed/*` 公共端点
+  - `server/src/app.js` — 挂载 embed 路由
+  - `server/test/embed.test.js` — 7 项嵌入与套接字协议测试
+  - `docs/EMBEDDED_EXAM_PROTOCOL.md` — 协议规范与集成指南
+  - `docs/PLAN.md`、`docs/PROCESS.md` — 进度与过程流水真源记账
+- **验收**：
+  - `cd server && npm test`：30 项单元与 API 集成测试 100% 全绿（耗时 247ms）。
+  - `cd client && npm run build`：客户端生产打包成功（388.53 kB）。
+  - 开考流程顺畅无阻断，直接开考、套接字握手与强制交卷全通路闭环。
+- **残留 / 不做**：无。
+
+---
+
 ## 7. 回写模板（以后每次改造复制）
 
 ```markdown

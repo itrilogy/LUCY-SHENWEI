@@ -296,13 +296,22 @@ async function initDB() {
             created_at INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_log(created_at);
+
+        -- V5 索引加固：高频查询与外键加速
+        CREATE INDEX IF NOT EXISTS idx_records_exam_mode_score ON records(exam_id, mode, score DESC, completed_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_records_user_id ON records(user_id, completed_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_records_completed_at ON records(completed_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_users_org_status_role ON users(org_id, status, role);
+        CREATE INDEX IF NOT EXISTS idx_user_profiles_dept ON user_profiles(department_id);
+        CREATE INDEX IF NOT EXISTS idx_exam_items_exam_order ON exam_items(exam_id, order_index ASC);
+        CREATE INDEX IF NOT EXISTS idx_annotations_asset ON annotations(asset_id);
     `);
 
     const ver = db.prepare('SELECT version FROM schema_version WHERE id = 1').get();
     if (!ver) {
-        db.prepare('INSERT INTO schema_version (id, version) VALUES (1, 4)').run();
-    } else if (ver.version < 4) {
-        db.prepare('UPDATE schema_version SET version = 4 WHERE id = 1').run();
+        db.prepare('INSERT INTO schema_version (id, version) VALUES (1, 5)').run();
+    } else if (ver.version < 5) {
+        db.prepare('UPDATE schema_version SET version = 5 WHERE id = 1').run();
     }
 
     // 默认组织与管理员种子
